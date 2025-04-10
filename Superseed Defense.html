@@ -1,0 +1,3701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Superseed Defense</title>
+  <style>
+    /* Global styles */
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #222;
+      color: #fff;
+      overflow: hidden;
+    }
+    
+    #gameCanvas {
+      display: block;
+      margin-left: 30px;
+      margin-top: 20px;
+      border: 2px solid #444;
+      background: #222;
+      position: relative; /* Added position relative */
+      z-index: 1;
+    }
+    /* Overlay styles */
+    #intro-screen,
+    #tutorial-overlay,
+    #enemy-popup-overlay,
+    #level-complete-overlay,
+    #pause-overlay,
+    #game-won-overlay, /* Added win overlay */
+    #gameOverOverlay /* Ensure game over also matches */ {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 300;
+    }
+    #intro-screen img {
+      max-width: 200px;
+      margin-bottom: 20px;
+    }
+    #intro-text {
+      max-width: 600px;
+      margin: 0 auto;
+      font-size: 20px;
+      line-height: 1.5;
+    }
+    #tutorial-overlay h1,
+    #level-complete-overlay h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+    #tutorial-overlay p,
+    #level-complete-overlay p {
+      font-size: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+    #enemy-popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 250;
+    }
+    #enemy-popup-content {
+      background: rgba(20, 30, 50, 0.95);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+      max-width: 600px;
+      border: 1px solid rgba(0, 200, 255, 0.4);
+    }
+    #enemy-popup-content h2 {
+      color: #ff8c00;
+      margin-bottom: 20px;
+      font-size: 32px;
+    }
+    #enemy-popup-content p {
+      color: #fff;
+      font-size: 20px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .enemy-preview {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+    }
+    .enemy-preview img {
+      width: 100px;
+      height: 100px;
+      object-fit: contain;
+    }
+    .enemy-stats {
+      text-align: left;
+      flex: 1;
+    }
+    .enemy-stats p {
+      margin: 5px 0;
+      font-size: 16px;
+      color: #ccc;
+    }
+    /* Game Container with logo */
+    #game-container {
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+      height: 100vh;
+      background: #222;
+      position: relative;
+      padding-left: 230px; /* Padding to account for shop width */
+      margin-top: 80px; /* Increased from 80px to give more space for logo */
+      padding-bottom: 50px; /* Added padding to reserve space at the bottom */
+      box-sizing: border-box; /* Include padding in height calculation */
+    }
+    #shop {
+      width: 230px; /* Shop width */
+      padding: 20px;
+      background: linear-gradient(to bottom, #1a2a3a, #0a1a2a);
+      border-right: 2px solid rgba(0, 200, 255, 0.3);
+      box-shadow: 0 0 15px rgba(0, 150, 255, 0.2);
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 100;
+      font-family: 'Rajdhani', sans-serif;
+    }
+    #gameCanvas {
+      margin-left: 30px; /* Margin between shop and canvas */
+      margin-top: 20px;
+      border: 2px solid #444;
+      display: block;
+      position: relative;
+      z-index: 1;
+    }
+    .shop-item {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+      transition: opacity 0.3s;
+      position: relative;
+      z-index: 200;
+      border: 2px solid transparent;
+    }
+    .shop-item:hover {
+      opacity: 0.8;
+    }
+    .shop-item.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .shop-item.selected {
+      border: 2px solid #fff;
+    }
+    #drv-display {
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #countdown-timer {
+      position: fixed;
+      bottom: 30px; /* Position above the progress bar */
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 22px;
+      color: #ffc107;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+      z-index: 100;
+    }
+    #progress-bar {
+      position: fixed;
+      bottom: 0; /* Back to the bottom edge */
+      left: 270px; /* Exact match with grid position: shop width (230px) + canvas margin (30px) + beam width (120px) */
+      width: calc(100% - 270px); /* Match grid width */
+      height: 20px;
+      background: #444;
+      z-index: 100;
+      overflow: hidden;
+      border-top: 2px solid #666;
+    }
+    #progress {
+      height: 100%;
+      background: linear-gradient(90deg, 
+        #28a745, 
+        #32cd32, 
+        #28a745,
+        #32cd32,
+        #28a745
+      );
+      background-size: 200% 100%;
+      width: 0%;
+      transition: width 0.3s;
+      animation: progressGradient 1.5s linear infinite;
+      box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+    }
+    @keyframes progressGradient {
+      0% {
+        background-position: 0% 0%;
+      }
+      100% {
+        background-position: 200% 0%;
+      }
+    }
+    /* Level counter */
+    #level-counter {
+      position: fixed;
+      bottom: 25px;
+      left: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #ff8c00;
+      z-index: 100;
+      text-shadow: 1px 1px 3px #000;
+    }
+    /* Overlays */
+    #gameTutorial, #levelCompleteOverlay, #gameOverOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(10, 20, 40, 0.85);
+      backdrop-filter: blur(5px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      z-index: 1000;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .tutorial-content {
+      max-width: 600px;
+      padding: 30px;
+      background-color: rgba(20, 30, 50, 0.95);
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+      position: relative;
+      top: -10%;  /* Move up by 10% of screen height */
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid rgba(0, 200, 255, 0.4);
+    }
+    
+    #levelCompleteOverlay h2, #gameOverOverlay h2 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #ff8c00;
+      position: relative;
+      top: -15%;  /* Move up by 15% of screen height */
+    }
+    
+    #levelCompleteOverlay p, #gameOverOverlay p {
+      font-size: 24px;
+      margin-top: 10px;
+      position: relative;
+      top: -15%;  /* Move up by 15% of screen height */
+    }
+    /* Rest of your existing styles... */
+
+    /* Genesis Seeder overlay styles */
+    .item-preview {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+    }
+
+    .item-description {
+      flex: 1;
+    }
+
+    .item-description h3 {
+      margin: 0 0 10px 0;
+      color: #32cd32;
+    }
+
+    .item-description p {
+      margin: 0;
+      color: #fff;
+      line-height: 1.5;
+    }
+
+    /* Logo styling */
+    #game-logo {
+      position: absolute;
+      top: -70px; /* Increased from -70px to create more space */
+      left: 50%;
+      transform: translateX(-50%);
+      width: 170px; /* Adjust logo width as needed */
+      height: auto;
+      z-index: 10;
+    }
+
+    /* Pause overlay with logo */
+    #pause-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      color: #fff;
+      z-index: 1000;
+      text-align: center;
+      padding-top: 40px; /* Small margin at top instead of centering vertically */
+    }
+
+    #pause-overlay img {
+      width: 200px;
+      margin-bottom: 20px;
+    }
+
+    #pause-overlay h1 {
+      color: #ff8c00;
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+
+    #pause-overlay p {
+      font-size: 18px;
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    /* Volume Controls Styling */
+    .volume-controls {
+      margin-bottom: 20px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+    }
+    .volume-controls label {
+      display: inline-block;
+      width: 50px;
+      margin-right: 10px;
+    }
+    .volume-controls input[type="range"] {
+      width: calc(100% - 70px); /* Adjust width based on label size */
+      vertical-align: middle;
+    }
+
+    /* Standardized Overlay Content Box Style */
+    .overlay-content-box {
+      background: rgba(20, 30, 50, 0.95);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+      max-width: 600px;
+      border: 1px solid rgba(0, 200, 255, 0.4);
+      text-align: center; /* Ensure text inside is centered */
+    }
+    .overlay-content-box h1, 
+    .overlay-content-box h2 {
+      color: #ff8c00; 
+      margin-bottom: 20px;
+      font-size: 32px; /* Match enemy popup h2 size */
+    }
+    .overlay-content-box p {
+      color: #fff;
+      font-size: 20px; /* Match enemy popup p size */
+      line-height: 1.5;
+      margin-bottom: 15px; /* Consistent paragraph spacing */
+    }
+    /* Style for any images within the standardized box */
+    .overlay-content-box img {
+      max-width: 200px; /* Consistent image sizing */
+      margin-bottom: 20px;
+    }
+    
+
+    /* Apply standard box to specific overlays */
+    #tutorial-overlay .tutorial-content,
+    #level-complete-overlay .level-complete-content,
+    #pause-overlay .pause-content,
+    #game-won-overlay .overlay-content-box, /* Apply to win overlay */
+    #gameOverOverlay .overlay-content-box /* Apply to game over */ {
+      /* Inherit standard box styles */
+      background: inherit;
+      padding: inherit;
+      border-radius: inherit;
+      box-shadow: inherit;
+      max-width: inherit;
+      border: inherit;
+      text-align: inherit;
+    }
+
+    /* Specific Overlay Adjustments (if needed - keep minimal) */
+    #pause-overlay .pause-content {
+        /* Pause might need slightly different layout, keep its specific styles if required */
+    }
+
+    /* Remove old specific positioning/sizing */
+    #tutorial-overlay h1, #level-complete-overlay h1 { font-size: 32px; } /* Standardize h1 */
+    #tutorial-overlay p, #level-complete-overlay p { font-size: 20px; max-width: 100%; } /* Standardize p */
+    .tutorial-content { /* Remove old positioning */
+        position: static; 
+        max-height: 80vh; 
+        overflow-y: auto; 
+    }
+    #levelCompleteOverlay h2, #gameOverOverlay h2 { /* Remove old positioning */
+        position: static; 
+        font-size: 32px; /* Standardize h2 */
+    } 
+    #levelCompleteOverlay p, #gameOverOverlay p { /* Remove old positioning */
+        position: static; 
+        font-size: 20px; /* Standardize p */
+    }
+    #pause-overlay h1 { font-size: 32px; } /* Standardize h1 */
+    #pause-overlay p { font-size: 20px; max-width: 100%; } /* Standardize p */
+
+    /* Level Skip Dropdown Styling */
+    #level-skip-container {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 1100; /* Ensure it's above most elements */
+      background: rgba(20, 30, 50, 0.8);
+      padding: 5px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(0, 200, 255, 0.4);
+    }
+    #level-skip-container label {
+      margin-right: 5px;
+      font-size: 14px;
+    }
+    #level-skip-select {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Level Skip Dropdown (for testing) -->
+  <div id="level-skip-container">
+    <label for="level-skip-select">Skip to Level:</label>
+    <select id="level-skip-select">
+      <!-- Options will be populated by JS -->
+    </select>
+  </div>
+
+  <!-- Intro/Splash Screen -->
+  <div id="intro-screen">
+    <img src="assets/logo_placeholder.png" alt="SuperSeed Logo">
+    <div id="intro-text">
+      In a digital world overrun by Debt Zombies and their allies, the future of decentralized finance is at stake. You are Superseed—the last hope to shield blockchain users from crushing debt.<br><br>
+      Generate and collect Seeds to power up your Dynamic Repayment Vault, build out your defenses, and defeat the onslaught.<br><br>
+      Prevent the enemies from reaching the Supercollateral Beam, or face total collapse. The battle for financial freedom begins now.<br><br>
+      Press any key to begin.
+    </div>
+  </div>
+  
+  <!-- Tutorial Overlay for Level 1 -->
+  <div id="tutorial-overlay">
+    <div class="overlay-content-box"> <!-- Standardized content box -->
+      <h1>Tutorial</h1>
+      <p>
+        <strong>Superseed Stablecoin:</strong> A barrier with high HP.<br><br>
+        <strong>Loan Beam:</strong> Fires bullets to damage Debt Zombies.<br><br>
+        Place items by selecting them from the shop and clicking on a grid tile.<br><br>
+        Press any key to start the game.
+      </p>
+    </div>
+  </div>
+  
+  <!-- Enemy Info Pop-up Overlay -->
+  <div id="enemy-popup-overlay">
+    <div id="enemy-popup-content"></div>
+    <p style="margin-top:20px; font-size:18px;">Press any key to continue</p>
+  </div>
+
+  <!-- Level Complete Overlay -->
+  <div id="level-complete-overlay">
+    <div class="overlay-content-box"> <!-- Standardized content box -->
+      <h1>Level <span id="completed-level">1</span> Complete!</h1>
+      <p>Get ready for Level <span id="next-level">2</span>...</p>
+      <p style="margin-top:20px; font-size:18px;">Press any key to continue</p>
+    </div>
+  </div>
+
+  <!-- Pause Overlay -->
+  <div id="pause-overlay">
+    <div class="overlay-content-box"> <!-- Standardized content box -->
+      <img src="assets/logo_placeholder.png" alt="SuperSeed Logo">
+      <h1>Game Paused</h1>
+      <p>Defend your base against the Debt Zombies and their allies.</p>
+      <p>Collect Seeds for your Dynamic Repayment Vault, establish defenses, unlock new items, and make it to the final level. May the kingdom of Superseed forever stand strong!</p>
+      <p style="margin-top: 30px; color: #aaa;">Press ESC to resume</p>
+    </div>
+  </div>
+
+  <!-- Game Won Overlay -->
+  <div id="game-won-overlay" style="display:none;">
+      <div class="overlay-content-box"> 
+        <h1>Victory!</h1>
+        <p>You've successfully defended against all waves of enemies - the Superchain can rest easy tonight.</p>
+        <p>Get some rest and refuel your Dynamic Repayment Vaults to fight another day.</p>
+        <!-- Optional: Add a button to restart/go to menu -->
+      </div>
+  </div>
+  
+  <!-- Game Container -->
+  <div id="game-container">
+    <img id="game-logo" src="assets/logo_placeholder.png" alt="SuperSeed Logo">
+    <div id="shop">
+      <div id="drv-display">DRV: $200</div>
+
+      <!-- Volume Controls -->
+      <div class="volume-controls">
+        <label for="volume-music">Music:</label>
+        <input type="range" id="volume-music" name="volume-music" min="0" max="1" step="0.05" value="0.4">
+        <br>
+        <label for="volume-sfx">SFX:</label>
+        <input type="range" id="volume-sfx" name="volume-sfx" min="0" max="1" step="0.05" value="0.7">
+      </div>
+      <!-- End Volume Controls -->
+
+      <div class="shop-item" data-item="selfloan" data-cost="20" style="background-color: #ffc107;">
+        Self-Repaying Loan<br>Cost: 20
+      </div>
+      <div class="shop-item" data-item="loanbeam" data-cost="40" style="background-color: #28a745;">
+        Loan Beam<br>Cost: 40
+      </div>
+      <div class="shop-item" data-item="cdpmine" data-cost="15" style="background-color: #dc3545;">
+        CDP Mine<br>Cost: 15
+      </div>
+      <div class="shop-item" data-item="stablecoin" data-cost="20" style="background-color: #007bff;">
+        Superseed Stablecoin<br>Cost: 30
+      </div>
+      <div class="shop-item" data-item="genesis" data-cost="100" style="background-color: #ff8c00;">
+        Genesis Seeder<br>Cost: 100
+      </div>
+      <div class="shop-item" data-item="remove" data-cost="0" style="background-color: #dc3545;">
+        Remove Emplacement<br>50% Refund
+      </div>
+      <div id="countdown-timer">Level starts in: 10 seconds</div>
+    </div>
+    <canvas id="gameCanvas" width="1056" height="480"></canvas>
+  </div>
+  <div id="progress-bar">
+    <div id="progress"></div>
+  </div>
+  
+  <!-- Audio Elements -->
+  <audio id="background-music" class="music-audio" preload="auto" loop>
+    <source src="audio/bg_music.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-shoot" class="sound-effect" preload="auto">
+    <source src="audio/sfx_shoot.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-explosion" class="sound-effect" preload="auto">
+    <source src="audio/sfx_explosion.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-seed" class="sound-effect" preload="auto">
+    <source src="audio/sfx_seed.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-enemy_hit" class="sound-effect" preload="auto">
+    <source src="audio/sfx_enemy_hit.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-supercollateral" class="sound-effect" preload="auto">
+    <source src="audio/sfx_supercollateral.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="ambient_basic" class="ambient-audio" preload="auto">
+    <source src="audio/ambient_basic.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="ambient_ltv" class="ambient-audio" preload="auto">
+    <source src="audio/ambient_ltv.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="ambient_rug" class="ambient-audio" preload="auto">
+    <source src="audio/ambient_rug.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-gs_impact" class="sound-effect" preload="auto">
+    <source src="audio/gs_impact.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="ambient_vv" class="ambient-audio" preload="auto" loop>
+    <source src="audio/ambient_vv.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="ambient_tank" class="ambient-audio" preload="auto" loop>
+    <source src="audio/ambient_tank.mp3" type="audio/mpeg">
+  </audio>
+  
+  <div id="gameTutorial" style="display: none">
+    <div class="tutorial-content">
+      <h2 id="tutorialTitle">Welcome to Superseed Defense!</h2>
+      <p id="tutorialText">Click anywhere to start...</p>
+    </div>
+  </div>
+  <div id="levelCompleteOverlay" style="display:none">
+    <h2>Level Complete!</h2>
+    <p>Click to continue to next level</p>
+  </div>
+  <div id="gameOverOverlay" style="display:none">
+    <h2>Game Over!</h2>
+    <p>Click to try again</p>
+  </div>
+  <div id="level-counter">Level 1</div>
+  
+  <!-- Genesis Seeder overlay -->
+  <div id="genesis-seeder-overlay" class="overlay">
+    <div class="overlay-content">
+      <h2>New Item Unlocked!</h2>
+      <div class="item-preview">
+        <img src="https://i.imgur.com/gs.png" alt="Genesis Seeder" style="width: 100px; height: 100px;">
+        <div class="item-description">
+          <h3>Genesis Seeder</h3>
+          <p>Shoots seeds that can hit enemies in adjacent lanes. Perfect for covering multiple paths!</p>
+        </div>
+      </div>
+      <button onclick="hideOverlay('genesis-seeder-overlay')">Got it!</button>
+    </div>
+  </div>
+  
+  <script>
+    /**********************
+     * Game Configuration *
+     **********************/
+    const TILE_SIZE = 96;
+    const ROWS = 5;
+    const COLS = 11;
+    const BEAM_WIDTH = 120; // Increased beam width for better visibility
+    const BEAM_MARGIN = 30; // Margin between shop and beam area
+    const GRID_START_X = BEAM_WIDTH + BEAM_MARGIN; // Grid starts after beam area plus margin
+    const CANVAS_WIDTH = GRID_START_X + (COLS * TILE_SIZE);
+    const CANVAS_HEIGHT = ROWS * TILE_SIZE;
+    const DN_BASE_HP = 135;
+    const DN_DAMAGE = 50;
+    const LOANBEAM_SHOT_INTERVAL = 1500;
+    const SELFLOAN_INTERVAL = 12000; // 12 seconds for SRL seed.
+    const SEED_VALUE = 20;
+    const MIN_SPAWN_INTERVAL = 2000; // Minimum 2 seconds between enemy spawns
+    const MAX_SPAWN_INTERVAL = 5000; // Maximum 5 seconds between enemy spawns
+    const FALLING_SEED_INTERVAL = 10000; // 10 seconds between falling seeds
+    const BULLET_SPEED = 0.32;
+    const HIT_FLASH_DURATION = 200;
+    const BEAM_DURATION = 500;
+    const MINE_MARGIN = 10; // Margin for CDP mine triggering.
+    const MINE_EXPLOSION_RADIUS = TILE_SIZE * 1.5; // Explosion radius for CDP mines
+    const MINE_EXPLOSION_DURATION = 500; // Duration of explosion animation
+    const SUPER_BEAM_RANGE = GRID_START_X + (4 * TILE_SIZE); // First 4 tiles range (guaranteed kill)
+    const SUPER_BEAM_MAX_RANGE = GRID_START_X + (8 * TILE_SIZE); // Maximum range (with falloff)
+    const SUPER_BEAM_BASE_DAMAGE = 2000; // Very high base damage to ensure kills
+    const levelSetupDuration = 10000; // 10-second setup delay.
+    const walkFrameCount = 30; // Number of animation frames for enemy walking animations
+    const FADE_IN_DURATION = 5000; // Changed to 2000ms (2 seconds) fade-in for summoned enemies
+    
+    // Enemy movement speeds - Reverted back to original values
+    const BASIC_ENEMY_SPEED = TILE_SIZE / 5000; // Original value
+    const LTV_ENEMY_SPEED = TILE_SIZE / 3800;   // Original value
+    const RUG_ENEMY_SPEED = TILE_SIZE / 3300;   // Original value
+
+    // Level settings
+    const levelSettings = {
+      1: { 
+        enemies: { basic: 3, ltv: 0, rug: 0 }, // Added 1 VC Vampire for testing
+        startingDRV: 200 
+      },
+      2: { 
+        enemies: { basic: 6, ltv: 0, rug: 0 },
+        startingDRV: 40 
+      },
+      3: { 
+        enemies: { basic: 4, ltv: 2, rug: 0 },
+        startingDRV: 40 
+      },
+      4: { 
+        enemies: { basic: 5, ltv: 1, rug: 2 },
+        startingDRV: 40 
+      },
+      5: { 
+        enemies: { basic: 6, ltv: 4, rug: 2 },
+        startingDRV: 40 
+      },
+      6: { 
+        enemies: { basic: 7, ltv: 5, rug: 3 },
+        startingDRV: 40 
+      },
+      7: { 
+        enemies: { basic: 8, ltv: 6, rug: 4, vcVampire: 1, tankenomics: 0 }, // Renamed key
+        startingDRV: 60 
+      },
+      8: { 
+        enemies: { basic: 10, ltv: 7, rug: 5, vcVampire: 1, tankenomics: 1 }, // Renamed key
+        startingDRV: 60 
+      },
+      9: { 
+        enemies: { basic: 12, ltv: 8, rug: 6, vcVampire: 1, tankenomics: 2 }, // Renamed key
+        startingDRV: 60 
+      },
+      10: { 
+        enemies: { basic: 15, ltv: 10, rug: 8, vcVampire: 2, tankenomics: 3 }, // Renamed key
+        startingDRV: 60 
+      }
+    };
+
+    /**********************
+     * Game State Variables *
+     **********************/
+    let canvas;
+    let ctx;
+    let lastTime = 0;
+    let gameTime = 0;
+    let gamePaused = false;
+    let gameOver = false;
+    let introScreenActive = true;
+    let tutorialOverlayActive = false;
+    let enemyPopupOverlayActive = false;
+    let levelCompleteOverlayVisible = false;
+    let currentLevel = 1;
+    let maxDNsThisLevel = levelSettings[currentLevel].dnc;
+    let spawnedDNs = 0;
+    let clearedDNs = 0;
+    let levelStartTime = 0;
+    let totalSpawnedByTypeThisLevel = { basic: 0, ltv: 0, rug: 0, vcVampire: 0, tankenomics: 0 }; // Track total spawned per type
+    let levelSetupDone = false;
+    let nextSpawnTime = levelSetupDuration + MIN_SPAWN_INTERVAL;
+    let lastSpawnedLane = -1;
+    let nextFallingSeedTime = levelSetupDuration + FALLING_SEED_INTERVAL;
+    let drv = levelSettings[currentLevel].startingDRV;
+    let selectedItem = null;
+    let removeMode = false;
+    let mouseX = 0;
+    let mouseY = 0;
+
+    // Game object arrays
+    let towers = [];
+    let dns = [];
+    let seeds = [];
+    let bullets = [];
+    let explosions = [];
+
+    // Beam tracking
+    let laneBeamsUsed = new Array(ROWS).fill(false);
+    let laneBeamEffect = new Array(ROWS).fill(0);
+
+    // Track if enemy info pop-ups have been shown
+    let enemyTutorialShown = {
+      ltv: false,
+      rug: false,
+      vcVampire: false,
+      tankenomics: false // Renamed key
+    };
+    
+    // Track if special item tutorials have been shown
+    let genesisSeederTutorialShown = false;
+
+    // Shop items
+    const shopItems = {
+      'stablecoin': { cost: 20, hp: 3000, type: 'barrier' },
+      'loanbeam': { cost: 40, hp: 200, shotInterval: LOANBEAM_SHOT_INTERVAL, damage: 10, type: 'shooter', level: 1 },
+      'cdpmine': { cost: 15, type: 'mine' },
+      'selfloan': { cost: 20, hp: 200, interval: SELFLOAN_INTERVAL, type: 'selfloan' },
+      'genesis': { cost: 100, hp: 400, shotInterval: LOANBEAM_SHOT_INTERVAL, damage: 25, type: 'genesis', level: 1 },
+      'remove': { cost: 0, type: 'remove' }
+    };
+
+    // Define enemy types
+    const enemyTypes = {
+      basic: {
+        hp: DN_BASE_HP,
+        speed: BASIC_ENEMY_SPEED,
+        color: '#dc3545',
+        animationFrames: null, // Will be set after images load
+        walkFrames: [],
+        attackFrames: []
+      },
+      ltv: {
+        hp: DN_BASE_HP * 1.5,
+        speed: LTV_ENEMY_SPEED,
+        color: '#ffc107',
+        animationFrames: null, // Will be set after images load
+        walkFrames: [],
+        attackFrames: []
+      },
+      rug: {
+        hp: DN_BASE_HP * 2,
+        speed: RUG_ENEMY_SPEED,
+        color: '#6f42c1',
+        animationFrames: null, // Will be set after images load
+        walkFrames: [],
+        attackFrames: []
+      },
+      vcVampire: {
+        hp: DN_BASE_HP * 4,
+        damage: DN_DAMAGE * 2, // High damage
+        speed: BASIC_ENEMY_SPEED * 0.6, // Slower speed
+        color: '#8a2be2', // Placeholder color (BlueViolet)
+        walkFrames: [], // Will be set after image loads
+        attackFrames: [],
+        summonInterval: 20000, // Changed to 20 seconds
+        summonCount: 2,
+        attackCooldown: 1500 // Slightly slower attack speed
+      },
+      tankenomics: { // Renamed from hodlHodler
+        hp: DN_BASE_HP * 10, // Very high HP
+        damage: DN_DAMAGE * 0.5, // Low damage
+        speed: BASIC_ENEMY_SPEED * 0.4, // Very slow speed
+        color: '#6c757d', // Placeholder color (Gray)
+        walkFrames: [], // Placeholder
+        attackFrames: [], // Placeholder
+        attackCooldown: 1000 // Standard attack speed
+      }
+    };
+
+    // Initialize all images first
+    let imagesLoaded = 0;
+    const totalImages = 8; // 8 base images (towers, seeds, etc.)
+
+    // Load all images
+    let stablecoinBarrierImage = new Image();
+    stablecoinBarrierImage.src = "assets/stablecoin_barrier.png";
+
+    let loanBeamImage = new Image();
+    loanBeamImage.src = "assets/loan_beam.png";
+
+    let cdpMineImage = new Image();
+    cdpMineImage.src = "assets/cdp_mine.png";
+
+    let selfLoanImage = new Image();
+    selfLoanImage.src = "assets/selfloan.png";
+    
+    let genesisSeederImage = new Image();
+    genesisSeederImage.src = "assets/genesis_seeder.png";
+
+    let seedImage = new Image();
+    seedImage.src = "assets/seed.png";
+
+    let logoImage = new Image();
+    logoImage.src = "assets/logo_placeholder.png";
+
+    let backgroundImage = new Image();
+    backgroundImage.src = "assets/background.png";
+
+    let bulletImage = new Image();
+    bulletImage.src = "assets/bullet.png";
+
+    let gsBulletImage = new Image();
+    gsBulletImage.src = "assets/gs_bullet.png";
+
+    let superBeamImage = new Image();
+    superBeamImage.src = "assets/supercollateral_beam.png";
+
+    let vcVampireImage = new Image();
+    vcVampireImage.src = "assets/vc_vampire.png";
+
+    let tankenomicsImage = new Image(); // Load the tank image
+    tankenomicsImage.src = "assets/tankenomics_1.png";
+
+    // Animation frame counts for different enemy types
+    const BASIC_FRAME_COUNT = 10;  // Regular debt zombies
+    const LTV_FRAME_COUNT = 10;    // LTV Lunatics
+    const RUG_FRAME_COUNT = 10;    // Rug Raiders
+    
+    // Load animation frames
+    let zombieWalkFrames = [];
+    let zombieAttackFrames = [];
+    let ltvWalkFrames = [];
+    let ltvAttackFrames = [];
+    let rugWalkFrames = [];
+    let rugAttackFrames = [];
+
+    // Load basic enemy walk frames
+    for (let i = 1; i <= BASIC_FRAME_COUNT; i++) {
+      let basicImg = new Image();
+      basicImg.src = `assets/go_${i}.png`;
+      zombieWalkFrames.push(basicImg);
+      basicImg.onload = handleImageLoad;
+      basicImg.onerror = () => {
+        console.error(`Failed to load basic enemy frame: go_${i}.png`);
+        handleImageLoad();
+      };
+    }
+
+    // Load basic enemy attack frames
+    for (let i = 1; i <= BASIC_FRAME_COUNT; i++) {
+      let attackImg = new Image();
+      attackImg.src = `assets/attack_${i}.png`;
+      zombieAttackFrames.push(attackImg);
+      attackImg.onload = handleImageLoad;
+      attackImg.onerror = () => {
+        console.error(`Failed to load attack frame: attack_${i}.png`);
+        handleImageLoad();
+      };
+    }
+    
+    // Load LTV frames
+    for (let i = 1; i <= LTV_FRAME_COUNT; i++) {
+      let ltvImg = new Image();
+      ltvImg.src = `assets/ltv_${i}.png`;
+      ltvWalkFrames.push(ltvImg);
+      ltvImg.onload = handleImageLoad;
+      ltvImg.onerror = () => {
+        console.error(`Failed to load LTV frame: ltv_${i}.png`);
+        handleImageLoad();
+      };
+    }
+    
+    // Load Rug frames
+    for (let i = 1; i <= RUG_FRAME_COUNT; i++) {
+      let rugImg = new Image();
+      rugImg.src = `assets/rug_${i}.png`;
+      rugWalkFrames.push(rugImg);
+      rugImg.onload = handleImageLoad;
+      rugImg.onerror = () => {
+        console.error(`Failed to load Rug frame: rug_${i}.png`);
+        handleImageLoad();
+      };
+    }
+
+    // Update enemy types with their frames
+    enemyTypes.basic.walkFrames = zombieWalkFrames;
+    enemyTypes.basic.attackFrames = zombieAttackFrames;
+    enemyTypes.ltv.walkFrames = ltvWalkFrames;
+    enemyTypes.ltv.attackFrames = ltvAttackFrames;
+    enemyTypes.rug.walkFrames = rugWalkFrames;
+    enemyTypes.rug.attackFrames = rugAttackFrames;
+    enemyTypes.vcVampire.walkFrames = [vcVampireImage]; // Use single image for now
+    enemyTypes.vcVampire.attackFrames = [vcVampireImage]; // Use single image for now
+    enemyTypes.tankenomics.walkFrames = [tankenomicsImage]; // Use single image for now
+    enemyTypes.tankenomics.attackFrames = [tankenomicsImage]; // Use single image for now
+
+    // Add load handlers to all base images
+    [stablecoinBarrierImage, loanBeamImage, cdpMineImage, selfLoanImage, 
+     genesisSeederImage, seedImage, logoImage, backgroundImage, bulletImage, 
+     gsBulletImage, superBeamImage, vcVampireImage, tankenomicsImage].forEach(img => {
+      img.onload = handleImageLoad;
+      img.onerror = () => {
+        console.error(`Failed to load image: ${img.src}`);
+        handleImageLoad();
+      };
+    });
+
+    // Add load handlers to all animation frames
+    [...zombieWalkFrames, ...zombieAttackFrames, ...ltvWalkFrames, ...ltvAttackFrames, ...rugWalkFrames, ...rugAttackFrames].forEach(img => {
+      img.onload = handleImageLoad;
+      img.onerror = () => {
+        console.error(`Failed to load animation frame: ${img.src}`);
+        handleImageLoad();
+      };
+    });
+
+    // Function to handle image loading
+    function handleImageLoad() {
+      imagesLoaded++;
+      console.log(`Image loaded (${imagesLoaded}/${totalImages + BASIC_FRAME_COUNT + LTV_FRAME_COUNT + RUG_FRAME_COUNT})`);
+      
+      // Check if all images are loaded
+      if(imagesLoaded === totalImages + BASIC_FRAME_COUNT + LTV_FRAME_COUNT + RUG_FRAME_COUNT) {
+        console.log("All images loaded successfully");
+        
+        // Update all enemy types with their animation frames
+        enemyTypes.basic.animationFrames = zombieWalkFrames;
+        enemyTypes.basic.attackFrames = zombieAttackFrames;
+        enemyTypes.ltv.animationFrames = ltvWalkFrames;
+        enemyTypes.ltv.attackFrames = ltvAttackFrames;
+        enemyTypes.rug.animationFrames = rugWalkFrames;
+        enemyTypes.rug.attackFrames = rugAttackFrames;
+        enemyTypes.vcVampire.walkFrames = [vcVampireImage]; // Use single image for now
+        enemyTypes.vcVampire.attackFrames = [vcVampireImage]; // Use single image for now
+        enemyTypes.tankenomics.walkFrames = [tankenomicsImage]; // Use single image for now
+        enemyTypes.tankenomics.attackFrames = [tankenomicsImage]; // Use single image for now
+        console.log("Animation frames assigned to all enemy types");
+        
+        // Initialize the game after all images are loaded
+        initializeGame();
+      }
+    }
+
+    // Function to initialize the game
+    function initializeGame() {
+      try {
+        console.log("Starting game initialization...");
+        
+        // Initialize canvas first
+        canvas = document.getElementById('gameCanvas');
+        if (!canvas) {
+          console.error("Could not find canvas element 'gameCanvas'");
+          return;
+        }
+        
+        // Get drawing context
+        ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error("Could not get 2D context from canvas");
+          return;
+        }
+        
+        // Set canvas dimensions if needed
+        if (canvas.width !== CANVAS_WIDTH || canvas.height !== CANVAS_HEIGHT) {
+          canvas.width = CANVAS_WIDTH;
+          canvas.height = CANVAS_HEIGHT;
+          console.log(`Set canvas dimensions to ${CANVAS_WIDTH}x${CANVAS_HEIGHT}`);
+        }
+        
+        console.log(`Canvas initialized with dimensions ${canvas.width}x${canvas.height}`);
+        
+        // Initialize game state variables
+        lastTime = performance.now();
+        gameTime = 0;
+        levelStartTime = 0;
+        totalSpawnedByTypeThisLevel = { basic: 0, ltv: 0, rug: 0, vcVampire: 0, tankenomics: 0 }; // Reset counter
+        nextSpawnTime = levelSetupDuration + MIN_SPAWN_INTERVAL;
+        lastSpawnedLane = -1;
+        nextFallingSeedTime = levelSetupDuration + FALLING_SEED_INTERVAL;
+        drv = levelSettings[currentLevel].startingDRV;
+        selectedItem = null;
+        removeMode = false;
+        
+        // Initialize game object arrays
+        towers = [];
+        dns = [];
+        seeds = [];
+        bullets = [];
+        explosions = [];
+        
+        // Initialize beam tracking
+        laneBeamsUsed = new Array(ROWS).fill(false);
+        laneBeamEffect = new Array(ROWS).fill(0);
+        
+        // Initialize enemy count variables
+        spawnedDNs = 0;
+        clearedDNs = 0;
+        
+        // Reset tutorial flags
+        enemyTutorialShown.ltv = false;
+        enemyTutorialShown.rug = false;
+        enemyTutorialShown.vcVampire = false;
+        enemyTutorialShown.tankenomics = false; // Renamed key & Reset
+        genesisSeederTutorialShown = false;
+        
+        // Show intro screen and hide other overlays
+        document.getElementById('intro-screen').style.display = 'flex';
+        document.getElementById('tutorial-overlay').style.display = 'none';
+        document.getElementById('enemy-popup-overlay').style.display = 'none';
+        document.getElementById('level-complete-overlay').style.display = 'none';
+        document.getElementById('pause-overlay').style.display = 'none';
+        document.getElementById('countdown-timer').style.display = 'none';
+        
+        // Set initial game state
+        introScreenActive = true;
+        tutorialOverlayActive = false;
+        enemyPopupOverlayActive = false;
+        levelCompleteOverlayVisible = false;
+        gamePaused = false;
+        gameOver = false;
+        
+        // Initialize UI
+        updateDRVDisplay();
+        
+        // Force initial draw to show grid
+        drawGame();
+        
+        // Set up event listeners
+        setupEventListeners();
+        
+        // Start background music
+        playBackgroundMusic();
+        
+        // Start the game loop
+        requestAnimationFrame(gameLoop);
+        
+      } catch(e) {
+        console.error("Error during game initialization:", e);
+      }
+    }
+
+    // Function to set up all event listeners
+    function setupEventListeners() {
+      console.log("Setting up event listeners...");
+      
+      // Remove any existing event listeners from shop items
+      document.querySelectorAll('.shop-item').forEach(item => {
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+      });
+      
+      // Shop item click handlers
+      const shopItems = document.querySelectorAll('.shop-item');
+      console.log(`Found ${shopItems.length} shop items`);
+      
+      shopItems.forEach(item => {
+        console.log(`Adding click handler to shop item: ${item.getAttribute('data-item')}`);
+        item.addEventListener('click', function() {
+          console.log(`Shop item clicked: ${this.getAttribute('data-item')}`);
+          console.log(`Disabled state: ${this.classList.contains('disabled')}`);
+          console.log(`Current selected item: ${selectedItem}`);
+          
+          if(this.classList.contains('disabled')) {
+            console.log("Item is disabled, ignoring click");
+            return;
+          }
+          
+          // Handle remove mode specially
+          if(this.getAttribute('data-item') === 'remove') {
+            removeMode = !removeMode;
+            this.classList.toggle('selected');
+            this.textContent = removeMode ? 'Cancel Remove' : 'Remove Emplacement\n50% Refund';
+            
+            // If canceling remove mode, deselect any selected item
+            if(!removeMode) {
+              selectedItem = null;
+              document.querySelectorAll('.shop-item').forEach(i => i.classList.remove('selected'));
+            }
+            return;
+          }
+          
+          // If clicking the same item, deselect it
+          if(selectedItem === this.getAttribute('data-item')) {
+            console.log("Deselecting item");
+            selectedItem = null;
+            this.classList.remove('selected');
+            return;
+          }
+          
+          // Otherwise, select the new item
+          console.log("Selecting new item");
+          selectedItem = this.getAttribute('data-item');
+          document.querySelectorAll('.shop-item').forEach(i => i.classList.remove('selected'));
+          this.classList.add('selected');
+        });
+      });
+
+      // Canvas click handler
+      const gameCanvas = document.getElementById('gameCanvas');
+      if (gameCanvas) {
+        console.log("Adding click handler to game canvas");
+        gameCanvas.removeEventListener('click', handleCanvasClick); // Remove any existing listener
+        gameCanvas.addEventListener('click', handleCanvasClick);
+      } else {
+        console.error("Game canvas not found!");
+      }
+
+      // Keydown handler
+      console.log("Adding keydown handler");
+      document.removeEventListener('keydown', handleKeydown); // Remove any existing listener
+      document.addEventListener('keydown', handleKeydown);
+      
+      // Mouse movement handler
+      console.log("Adding mousemove handler");
+      document.removeEventListener('mousemove', handleMouseMove); // Remove any existing listener
+      document.addEventListener('mousemove', handleMouseMove);
+
+      // Visibility change handler
+      console.log("Adding visibility change handler");
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+          console.log("Window hidden, pausing game");
+          gamePaused = true;
+          document.getElementById('pause-overlay').style.display = 'flex';
+          // Pause all audio
+          document.getElementById("ambient_basic").pause();
+          document.getElementById("ambient_ltv").pause();
+          document.getElementById("ambient_rug").pause();
+          document.getElementById("ambient_vv").pause(); // Pause VV ambient too
+          document.getElementById("ambient_tank").pause(); // Pause Tank ambient too
+        } else {
+          console.log("Window visible, resuming game");
+          gamePaused = false;
+          document.getElementById('pause-overlay').style.display = 'none';
+          lastTime = performance.now();
+          requestAnimationFrame(gameLoop);
+        }
+      });
+      
+      console.log("Event listeners setup complete");
+    }
+
+    // Function to handle mouse movement
+    function handleMouseMove(e) {
+      const gameCanvas = document.getElementById('gameCanvas');
+      if (gameCanvas) {
+        const rect = gameCanvas.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        mouseY = e.clientY - rect.top;
+      }
+    }
+
+    // Function to handle canvas clicks
+    function handleCanvasClick(e) {
+      console.log("Canvas clicked");
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      console.log("Click position:", x, y);
+      console.log("Selected item:", selectedItem);
+      
+      // Don't handle clicks if overlays are active
+      if(document.getElementById('intro-screen').style.display === 'block' ||
+         document.getElementById('tutorial-overlay').style.display === 'block' ||
+         document.getElementById('enemy-popup-overlay').style.display === 'block' ||
+         document.getElementById('level-complete-overlay').style.display === 'block') {
+        return;
+      }
+      
+      // Check for seed collection first, regardless of selected item
+      let seedCollected = false;
+      for(let i = seeds.length - 1; i >= 0; i--) {
+        let seed = seeds[i];
+        let dx = x - (seed.x + TILE_SIZE/4);
+        let dy = y - (seed.y + TILE_SIZE/4);
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if(distance < TILE_SIZE/2) {
+          drv += SEED_VALUE;
+          seeds.splice(i, 1);
+          updateDRVDisplay();
+          seedCollected = true;
+          break;
+        }
+      }
+      
+      // If we collected a seed, don't process any other clicks
+      if(seedCollected) {
+        return;
+      }
+      
+      // Handle remove mode
+      if(removeMode) {
+        let itemRemoved = false;
+        towers.forEach((tower, index) => {
+          let dx = x - (tower.x + TILE_SIZE/2);
+          let dy = y - (tower.y + TILE_SIZE/2);
+          let distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if(distance < TILE_SIZE/2) {
+            drv += Math.floor(tower.cost * 0.5);
+            towers.splice(index, 1);
+            updateDRVDisplay();
+            playSound('remove');
+            itemRemoved = true;
+          }
+        });
+        
+        // If an item was removed, automatically deselect remove mode
+        if(itemRemoved) {
+          removeMode = false;
+          const removeButton = document.querySelector('.shop-item[data-item="remove"]');
+          if(removeButton) {
+            removeButton.classList.remove('selected');
+            removeButton.textContent = 'Remove Emplacement\n50% Refund';
+          }
+        }
+        return;
+      }
+      
+      // Handle normal tower placement
+      if(!selectedItem) {
+        console.log("No item selected");
+        return;
+      }
+      
+      // Convert click coordinates to grid position - using proper offset from GRID_START_X
+      let gridX = Math.floor((x - GRID_START_X) / TILE_SIZE);
+      if (gridX < 0) gridX = 0; // Ensure non-negative grid position
+      
+      const gridY = Math.floor(y / TILE_SIZE);
+      console.log("Grid position:", gridX, gridY);
+      
+      // Check if click is within grid bounds
+      if(gridX < 0 || gridX >= COLS || gridY < 0 || gridY >= ROWS) {
+        console.log("Click outside grid");
+        return;
+      }
+      
+      // Check if tile is already occupied by a tower
+      if(towers.some(tower => tower.gridX === gridX && tower.gridY === gridY)) {
+        console.log("Tile already occupied by a tower");
+        return;
+      }
+
+      // Check if tile occupied by ANY enemy (prevents placing any tower on an enemy)
+      let enemyOccupiesTile = false;
+      for (const dn of dns) {
+        // Check only active approaching enemies
+        if (dn.state !== 'approaching') continue;
+        // Calculate enemy's approximate grid column based on its center
+        const enemyCenterX = dn.x + TILE_SIZE / 2;
+        const enemyGridX = Math.floor((enemyCenterX - GRID_START_X) / TILE_SIZE);
+        
+        if (enemyGridX === gridX && dn.row === gridY) {
+          enemyOccupiesTile = true;
+          break;
+        }
+      }
+      if (enemyOccupiesTile) {
+        console.log("Cannot place item: Tile occupied by an enemy.");
+        return; // Prevent placement
+      }
+      
+      // Get item cost
+      const item = document.querySelector(`.shop-item[data-item="${selectedItem}"]`);
+      if(!item) {
+        console.log("Item not found in shop");
+        return;
+      }
+      
+      const cost = parseInt(item.getAttribute('data-cost'));
+      console.log("Item cost:", cost);
+      
+      // Check if player has enough DRV
+      if(drv < cost) {
+        console.log("Not enough DRV");
+        return;
+      }
+      
+      // Place tower - align with grid, properly accounting for grid start
+      drv -= cost;
+      towers.push({
+        type: selectedItem,
+        x: GRID_START_X + (gridX * TILE_SIZE),  // Properly align with grid
+        y: gridY * TILE_SIZE,
+        gridX: gridX,
+        gridY: gridY,
+        cost: cost,
+        lastShot: 0,
+        lastShotTime: gameTime,  // For loan beams
+        lastSeedTime: gameTime,  // For self loans
+        level: 1,
+        hp: shopItems[selectedItem].hp || 0,
+        placementTime: gameTime,
+        row: gridY,  // Add row property for collision detection
+        damage: shopItems[selectedItem].damage || 0,
+        shotInterval: shopItems[selectedItem].shotInterval || 0,
+        interval: shopItems[selectedItem].interval || 0
+      });
+      
+      updateDRVDisplay();
+      playSound('place');
+      selectedItem = null;
+      document.querySelectorAll('.shop-item').forEach(item => item.classList.remove('selected'));
+    }
+
+    // Function to handle keydown events
+    function handleKeydown(e) {
+      console.log("Keydown event:", e.key);
+      
+      // Level complete overlay: advance level
+      if(levelCompleteOverlayVisible) {
+        document.getElementById('level-complete-overlay').style.display = 'none';
+        levelCompleteOverlayVisible = false;
+        
+        // Check if the completed level was the last one
+        if (currentLevel >= 10) { // Assuming 10 is the last level
+          console.log("Game Won!");
+          document.getElementById('game-won-overlay').style.display = 'flex';
+          // Optionally stop background music, ambient sounds etc.
+          document.getElementById("background-music").pause();
+          document.getElementById("ambient_basic").pause();
+          document.getElementById("ambient_ltv").pause();
+          document.getElementById("ambient_rug").pause();
+          document.getElementById("ambient_vv").pause();
+          document.getElementById("ambient_tank").pause();
+          gamePaused = true; // Stop game logic
+          return; // Don't proceed to next level setup
+        }
+        
+        // Otherwise, proceed to next level
+        currentLevel++;
+        
+        if(levelSettings[currentLevel]) {
+          // Set new level parameters
+          maxDNsThisLevel = getTotalEnemiesForLevel();
+          drv = levelSettings[currentLevel].startingDRV;
+          updateShopAvailability();
+          
+          // Reset game objects for next level
+          towers = [];
+          dns = [];
+          seeds = [];
+          bullets = [];
+          explosions = [];
+          spawnedDNs = 0;
+          clearedDNs = 0;
+          totalSpawnedByTypeThisLevel = { basic: 0, ltv: 0, rug: 0, vcVampire: 0, tankenomics: 0 }; // Reset counter
+          laneBeamsUsed = new Array(ROWS).fill(false);
+          
+          // Reset progress bar
+          document.getElementById("progress").style.width = "0%";
+          
+          // Show tutorial overlay only for levels where new content is introduced
+          const levelsWithNewContent = [1, 2, 3, 5]; 
+          if (levelsWithNewContent.includes(currentLevel)) {
+            updateTutorialContent();
+            document.getElementById('tutorial-overlay').style.display = 'flex';
+            tutorialOverlayActive = true;
+            document.getElementById('countdown-timer').style.display = 'none';
+            levelSetupDone = false;
+          } else {
+            // For levels 5+, start countdown immediately
+            document.getElementById('countdown-timer').style.display = 'block';
+            levelStartTime = gameTime;
+            levelSetupDone = false;
+            nextSpawnTime = levelSetupDuration;
+            nextFallingSeedTime = levelSetupDuration + FALLING_SEED_INTERVAL;
+            lastTime = performance.now();
+          }
+        }
+        
+        updateDRVDisplay();
+        return;
+      }
+      
+      // Dismiss any other overlay
+      if(introScreenActive || tutorialOverlayActive || enemyPopupOverlayActive) {
+        if(introScreenActive) {
+          document.getElementById('intro-screen').style.display = 'none';
+          introScreenActive = false;
+          // Show tutorial for level 1
+          updateTutorialContent();
+          document.getElementById('tutorial-overlay').style.display = 'flex';
+          tutorialOverlayActive = true;
+          document.getElementById('countdown-timer').style.display = 'none';
+        } else if(tutorialOverlayActive) {
+          document.getElementById('tutorial-overlay').style.display = 'none';
+          tutorialOverlayActive = false;
+          
+          // Ensure no enemies exist when tutorial is dismissed
+          dns = [];
+          spawnedDNs = 0;
+          
+          // Initialize game state when tutorial is dismissed
+          levelStartTime = gameTime;
+          levelSetupDone = false;
+          nextSpawnTime = gameTime + levelSetupDuration;
+          nextFallingSeedTime = gameTime + levelSetupDuration + FALLING_SEED_INTERVAL;
+          lastTime = performance.now();
+          
+          // Start the countdown timer
+          document.getElementById('countdown-timer').style.display = 'block';
+          
+          // Force a redraw to show the grid
+          drawGame();
+        } else if(enemyPopupOverlayActive) {
+          document.getElementById('enemy-popup-overlay').style.display = 'none';
+          enemyPopupOverlayActive = false;
+          gamePaused = false;
+        }
+        return;
+      }
+      
+      // Toggle pause with Escape
+      if(e.key === "Escape") {
+        console.log("ESC key pressed, toggling pause");
+        gamePaused = !gamePaused;
+        document.getElementById('pause-overlay').style.display = gamePaused ? 'flex' : 'none';
+        if(gamePaused) {
+          document.getElementById("ambient_basic").pause();
+          document.getElementById("ambient_ltv").pause();
+          document.getElementById("ambient_rug").pause();
+          document.getElementById("ambient_vv").pause(); // Pause VV ambient too
+          document.getElementById("ambient_tank").pause(); // Pause Tank ambient too
+        } else {
+          lastTime = performance.now();
+          requestAnimationFrame(gameLoop);
+        }
+      }
+    }
+
+    // Function to update shop item availability based on level
+    function updateShopAvailability() {
+      console.log("Updating shop availability for level", currentLevel);
+      document.querySelectorAll('.shop-item').forEach(item => {
+        let itemType = item.getAttribute('data-item');
+        let cost = parseInt(item.getAttribute('data-cost'));
+        
+        console.log(`Checking item: ${itemType}, cost: ${cost}`);
+        
+        // Hide all items first
+        item.style.display = 'none';
+        item.classList.add('disabled');
+        
+        // Show and enable items based on level
+        switch(currentLevel) {
+          case 1:
+            if(itemType === 'selfloan' || itemType === 'loanbeam') {
+              item.style.display = 'block';
+              if(drv >= cost) {
+                item.classList.remove('disabled');
+                console.log(`Enabled ${itemType} for level 1`);
+              }
+            }
+            break;
+          case 2:
+            if(itemType === 'selfloan' || itemType === 'loanbeam' || itemType === 'cdpmine') {
+              item.style.display = 'block';
+              if(drv >= cost) {
+                item.classList.remove('disabled');
+                console.log(`Enabled ${itemType} for level 2`);
+              }
+            }
+            break;
+          case 3:
+            if(itemType === 'selfloan' || itemType === 'loanbeam' || itemType === 'cdpmine' || itemType === 'stablecoin') {
+              item.style.display = 'block';
+              if(drv >= cost) {
+                item.classList.remove('disabled');
+                console.log(`Enabled ${itemType} for level 3`);
+              }
+            }
+            break;
+          case 4:
+            if(itemType !== 'genesis' && itemType !== 'remove') {
+              item.style.display = 'block';
+              if(drv >= cost) {
+                item.classList.remove('disabled');
+                console.log(`Enabled ${itemType} for level 4`);
+              }
+            }
+            break;
+          case 5:
+          case 6:
+            // Show Genesis Seeder starting at level 5
+            if(itemType !== 'remove') {
+              item.style.display = 'block';
+              if(drv >= cost) {
+                item.classList.remove('disabled');
+                console.log(`Enabled ${itemType} for level ${currentLevel}`);
+              }
+            }
+            // Show Genesis tutorial at level 5
+            if(currentLevel === 5 && itemType === 'genesis' && !genesisSeederTutorialShown) {
+              genesisSeederTutorialShown = true;
+              document.getElementById('enemy-popup-content').innerHTML = `
+                <h2>Genesis Seeder</h2>
+                <p>This advanced tower shoots more powerful projectiles that damage enemies in multiple lanes!</p>
+                <div class="enemy-preview">
+                  <img src="assets/genesis_seeder.png" alt="Genesis Seeder">
+                  <div class="enemy-stats">
+                    <p><strong>Damage:</strong> ${shopItems.genesis.damage}</p>
+                    <p><strong>Special:</strong> Shoots in 3 lanes at once</p>
+                    <p><strong>Health:</strong> ${shopItems.genesis.hp}</p>
+                  </div>
+                </div>
+                <p>Place it strategically to maximize multi-lane coverage!</p>
+              `;
+              document.getElementById('enemy-popup-overlay').style.display = 'flex';
+              enemyPopupOverlayActive = true;
+              gamePaused = true;
+            }
+            break;
+          default:
+            if(itemType !== 'remove') { // Always show remove button
+              item.style.display = 'block';
+              if(drv >= cost) {
+                item.classList.remove('disabled');
+                console.log(`Enabled ${itemType} for level ${currentLevel}`);
+              }
+            }
+        }
+        
+        // Always show remove button
+        if(itemType === 'remove') {
+          item.style.display = 'block';
+          item.classList.remove('disabled');
+        }
+      });
+    }
+
+    // Function to update DRV display
+    function updateDRVDisplay() {
+      console.log("Updating DRV display:", drv);
+      document.getElementById('drv-display').innerText = 'DRV: $' + drv;
+      document.getElementById('level-counter').innerText = 'Level ' + currentLevel;
+      updateShopAvailability();
+    }
+
+    // Function to play background music
+    function playBackgroundMusic() {
+      let bgMusic = document.getElementById('background-music');
+      
+      // Get stored volume setting or use default
+      const storedVolume = bgMusic.getAttribute('data-volume');
+      if (storedVolume) {
+        bgMusic.volume = parseFloat(storedVolume);
+      } else {
+        bgMusic.volume = 0.4;
+      }
+      
+      // Try to play the music
+      let playPromise = bgMusic.play();
+      if (playPromise !== undefined) {
+        playPromise.then(_ => {
+          console.log("Background music started playing");
+        })
+        .catch(error => {
+          console.log("Background music play failed:", error);
+          // Try to play again after user interaction
+          document.addEventListener('click', function startMusic() {
+            bgMusic.play().catch(function(error) {
+              console.log("Background music play failed after user interaction:", error);
+            });
+            document.removeEventListener('click', startMusic);
+          }, { once: true });
+        });
+      }
+    }
+
+    // Function to play sound effects
+    function playSound(name) {
+      let audio;
+      switch(name) {
+        case 'shoot':
+          audio = document.getElementById('sfx-shoot');
+          break;
+        case 'explosion':
+          audio = document.getElementById('sfx-explosion');
+          break;
+        case 'seed_spawn':
+          audio = document.getElementById('sfx-seed');
+          break;
+        case 'enemy_hit':
+          audio = document.getElementById('sfx-enemy_hit');
+          break;
+        case 'supercollateral':
+          audio = document.getElementById('sfx-supercollateral');
+          break;
+        case 'gs_impact':
+          audio = document.getElementById('sfx-gs_impact');
+          break;
+      }
+      if(audio) {
+        // Get the stored volume from data attribute
+        const storedVolume = audio.getAttribute('data-volume');
+        if (storedVolume) {
+          audio.volume = parseFloat(storedVolume);
+        }
+        audio.currentTime = 0;
+        let playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(function(error) {
+            console.log("Sound effect play failed:", error);
+          });
+        }
+      }
+    }
+
+    // Function to play ambient sounds (using stored volume settings)
+    function playAmbientSound(audioElement) {
+      if (audioElement) {
+        // Get the stored volume from data attribute
+        const storedVolume = audioElement.getAttribute('data-volume');
+        if (storedVolume) {
+          audioElement.volume = parseFloat(storedVolume);
+        }
+        let playPromise = audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(function(error) {
+            console.log("Ambient sound play failed:", error);
+          });
+        }
+      }
+    }
+
+    // Function to update ambient sounds
+    function updateAmbientSounds() {
+      if(gamePaused) {
+        document.getElementById("ambient_basic").pause();
+        document.getElementById("ambient_ltv").pause();
+        document.getElementById("ambient_rug").pause();
+        document.getElementById("ambient_vv").pause(); // Pause VV ambient too
+        document.getElementById("ambient_tank").pause(); // Pause Tank ambient too
+        return;
+      }
+      let countBasic = dns.filter(dn => dn.enemyType === "basic" && dn.state === "approaching").length;
+      let countLtv = dns.filter(dn => dn.enemyType === "ltv" && dn.state === "approaching").length;
+      let countRug = dns.filter(dn => dn.enemyType === "rug" && dn.state === "approaching").length;
+      let countVv = dns.filter(dn => dn.enemyType === "vcVampire" && dn.state === "approaching").length; // Count VV
+      let countTank = dns.filter(dn => dn.enemyType === "tankenomics" && dn.state === "approaching").length; // Count Tank
+      let ambientBasic = document.getElementById("ambient_basic");
+      let ambientLtv = document.getElementById("ambient_ltv");
+      let ambientRug = document.getElementById("ambient_rug");
+      let ambientVv = document.getElementById("ambient_vv"); // Get VV element
+      let ambientTank = document.getElementById("ambient_tank"); // Get Tank element
+      
+      // Update basic enemy ambient
+      if(countBasic > 0) {
+        if(ambientBasic.paused) {
+          playAmbientSound(ambientBasic);
+        }
+      } else {
+        ambientBasic.pause();
+        ambientBasic.currentTime = 0;
+      }
+      
+      // Update LTV ambient
+      if(countLtv > 0) {
+        if(ambientLtv.paused) {
+          playAmbientSound(ambientLtv);
+        }
+      } else {
+        ambientLtv.pause();
+        ambientLtv.currentTime = 0;
+      }
+      
+      // Update rug ambient
+      if(countRug > 0) {
+        if(ambientRug.paused) {
+          playAmbientSound(ambientRug);
+        }
+      } else {
+        ambientRug.pause();
+        ambientRug.currentTime = 0;
+      }
+
+      // Update VC Vampire ambient
+      if(countVv > 0) {
+        if(ambientVv.paused) {
+          playAmbientSound(ambientVv);
+        }
+      } else {
+        ambientVv.pause();
+        ambientVv.currentTime = 0;
+      }
+
+      // Update Tankenomics ambient
+      if(countTank > 0) {
+        if(ambientTank.paused) {
+          playAmbientSound(ambientTank);
+        }
+      } else {
+        ambientTank.pause();
+        ambientTank.currentTime = 0;
+      }
+    }
+
+    // Function to create a falling seed at a random position
+    function createFallingSeed() {
+      // Calculate the leftmost two-thirds of the grid area
+      const gridWidth = COLS * TILE_SIZE;
+      const twoThirdsWidth = Math.floor(gridWidth * (2/3));
+      const maxPosX = GRID_START_X + twoThirdsWidth;
+      
+      // Generate random position within the leftmost two-thirds
+      let x = GRID_START_X + Math.random() * twoThirdsWidth;
+      
+      console.log(`Creating seed at x=${x}, max allowed=${maxPosX}`);
+      
+      let seed = {
+        type: "fall",
+        x: x,
+        y: -TILE_SIZE/2, // Start above the screen
+        targetY: Math.floor(Math.random() * ROWS) * TILE_SIZE + TILE_SIZE / 2, // Random row
+        vx: 0,
+        vy: 30 + Math.random() * 20 // Random fall speed
+      };
+      seeds.push(seed);
+    }
+
+    // Main game loop
+    function gameLoop(timestamp) {
+      let delta = timestamp - lastTime;
+      
+      // Update game time only when not paused and no overlays are active
+      if(!gamePaused && !introScreenActive && !enemyPopupOverlayActive && !levelCompleteOverlayVisible) {
+        // Only update game time if tutorial is not active
+        if(!tutorialOverlayActive) {
+          gameTime += delta;
+          
+          // Update countdown timer display
+          let countdownElem = document.getElementById("countdown-timer");
+          
+          // Debug the countdown timer state
+          if(!countdownElem) {
+            console.error("Countdown timer element not found!");
+          } else {
+            // Check countdown timer visibility
+            console.log(`Countdown timer style display: ${countdownElem.style.display}`);
+            
+            // Calculate and update countdown
+            let elapsedSetup = gameTime - levelStartTime;
+            let setupTimeLeft = levelSetupDuration - elapsedSetup;
+            
+            console.log(`Countdown: elapsedSetup=${elapsedSetup}, setupTimeLeft=${setupTimeLeft}, levelSetupDone=${levelSetupDone}`);
+            
+            if(setupTimeLeft > 0) {
+              countdownElem.style.display = 'block';
+              countdownElem.innerText = "Level starts in: " + Math.ceil(setupTimeLeft / 1000) + " seconds";
+              // Ensure no enemies are moving during countdown (for levels 2+)
+              dns = [];
+              spawnedDNs = 0; 
+            } else if(!levelSetupDone) {
+              // Transition from countdown to gameplay
+              countdownElem.style.display = 'none';
+              countdownElem.innerText = "";
+              levelSetupDone = true;
+              
+              console.log("Countdown finished, level starting!");
+              console.log(`Current level: ${currentLevel}`);
+              
+              // Set maxDNsThisLevel based on current level settings
+              maxDNsThisLevel = getTotalEnemiesForLevel();
+              console.log(`Max enemies for this level: ${maxDNsThisLevel}`);
+              
+              // Reset spawn counters
+              spawnedDNs = 0;
+              clearedDNs = 0;
+              
+              // Set initial spawn time
+              nextSpawnTime = gameTime;
+              console.log(`First enemy spawn time set to ${nextSpawnTime}`);
+              
+              // Force a single initial seed spawn
+              createFallingSeed();
+              nextFallingSeedTime = gameTime + FALLING_SEED_INTERVAL;
+              console.log("Initial seed created");
+            }
+          }
+        }
+      }
+      
+      // Always try to draw the game state if we have a valid context
+      if (ctx) {
+        drawGame();
+      } else {
+        console.error("Canvas context missing in gameLoop");
+      }
+      
+      // Update game state if not paused or showing overlays
+      if(!gamePaused && !introScreenActive && !enemyPopupOverlayActive && !levelCompleteOverlayVisible && !gameOver && !tutorialOverlayActive) {
+        updateGame(delta);
+      }
+      
+      // Handle game over state
+      if(gameOver) {
+        if (ctx) {
+          document.getElementById("gameOverOverlay").style.display = "flex";
+          return; // Stop the game loop
+        }
+      }
+      
+      // Continue the game loop
+      lastTime = timestamp;
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Function to update game state
+    function updateGame(delta) {
+      // Do not update game state when tutorial/intro screens are active
+      if(introScreenActive || tutorialOverlayActive || enemyPopupOverlayActive || levelCompleteOverlayVisible || gamePaused) {
+        return;
+      }
+      
+      // Only update if setup is done OR we're between levels with active enemies
+      if(!levelSetupDone && dns.length === 0) {
+        return;
+      }
+      
+      // Clear any existing invalid enemies
+      let beforeCount = dns.length;
+      dns = dns.filter(dn => dn && dn.x >= 0 && dn.x <= CANVAS_WIDTH + TILE_SIZE && dn.state === 'approaching');
+      if(beforeCount !== dns.length) {
+        console.log(`Removed ${beforeCount - dns.length} invalid enemies`);
+        // Update progress bar based on enemies cleared vs. total
+        updateProgressBar();
+      }
+      
+      // Spawn falling seed every FALLING_SEED_INTERVAL
+      if(gameTime >= nextFallingSeedTime) {
+        createFallingSeed();
+        nextFallingSeedTime = gameTime + FALLING_SEED_INTERVAL;
+      }
+      
+      // Only spawn new enemies if level setup is done
+      if(levelSetupDone) {
+        // Spawn enemies with proper delay
+        if(gameTime >= nextSpawnTime && spawnedDNs < maxDNsThisLevel) {
+          console.log("Attempting to spawn enemy...");
+          console.log(`Current time: ${gameTime}`);
+          console.log(`Next spawn time: ${nextSpawnTime}`);
+          console.log(`Spawned DNs: ${spawnedDNs}`);
+          console.log(`Max DNs this level: ${maxDNsThisLevel}`);
+          
+          try {
+            const enemy = spawnDN();
+            if (enemy) {
+              console.log("Enemy spawned successfully");
+              // Use random spawn interval for next enemy
+              nextSpawnTime = gameTime + getRandomSpawnInterval();
+              console.log(`Next spawn time set to: ${nextSpawnTime}`);
+            } else {
+              console.log("Failed to spawn enemy, trying again shortly");
+              // Try again shortly
+              nextSpawnTime = gameTime + 1000;
+            }
+          } catch(e) {
+            console.error("Error spawning enemy:", e);
+            // Try again shortly
+            nextSpawnTime = gameTime + 1000;
+          }
+        }
+      }
+      
+      // Update enemies
+      for(let i = dns.length - 1; i >= 0; i--) {
+        let dn = dns[i];
+        
+        // Skip invalid enemies
+        if(!dn || dn.state !== 'approaching') {
+          continue;
+        }
+        
+        // Update animation frame
+        if(dn.animationFrames && dn.animationFrames.length > 0) {
+          dn.frameTimer += delta;
+          if(dn.frameTimer >= dn.frameDuration) {
+            dn.frameTimer = 0;
+            
+            // Handle attack animation for enemies
+            if(dn.isAttacking) {
+              // Use the appropriate attack frames depending on enemy type
+              let attackFrames = [];
+              if(dn.enemyType === "basic") {
+                attackFrames = enemyTypes.basic.attackFrames;
+              } else if(dn.enemyType === "ltv") {
+                attackFrames = enemyTypes.ltv.attackFrames;
+              } else if(dn.enemyType === "rug") {
+                attackFrames = enemyTypes.rug.attackFrames;
+              }
+              
+              if(attackFrames && attackFrames.length > 0) {
+                // During attack animation
+                if(gameTime - dn.attackStartTime < dn.attackDuration) {
+                  dn.frameIndex = (dn.frameIndex + 1) % attackFrames.length;
+                } else {
+                  // Check if the tower we're attacking still exists
+                  let towerStillExists = false;
+                  for(let t = 0; t < towers.length; t++) {
+                    let tower = towers[t];
+                    if(tower.type !== 'cdpmine' && 
+                        tower.row === dn.row && 
+                        dn.x <= tower.x + TILE_SIZE && 
+                        dn.x + TILE_SIZE/2 >= tower.x) {
+                      towerStillExists = true;
+                      break;
+                    }
+                  }
+                  
+                  // Continue attacking if tower still exists
+                  if(towerStillExists) {
+                    // Reset attack animation
+                    dn.frameIndex = 0;
+                    dn.attackStartTime = gameTime;
+                  } else {
+                    // Return to walking animation if tower is gone
+                    dn.isAttacking = false;
+                    dn.frameIndex = 0;
+                  }
+                }
+              } else {
+                // If no attack frames, just use regular animation
+                dn.isAttacking = false;
+                dn.frameIndex = (dn.frameIndex + 1) % dn.animationFrames.length;
+              }
+            } else {
+              // Normal walking animation
+              dn.frameIndex = (dn.frameIndex + 1) % dn.animationFrames.length;
+            }
+          }
+        }
+        
+        // Move enemy ONLY if not attacking - applies to ALL enemy types
+        if(!dn.isAttacking) {
+          dn.x -= dn.speed * delta;
+        }
+        
+        // Check for collision with CDP mines
+        for(let t = 0; t < towers.length; t++) {
+          let tower = towers[t];
+          if(tower.type === 'cdpmine') {
+            // Only check for mine triggers in the same lane as the enemy
+            if(dn.row === tower.row) {
+              // Calculate horizontal distance between enemy and mine
+              let dx = Math.abs(dn.x + TILE_SIZE/2 - (tower.x + TILE_SIZE/2));
+              
+              // If enemy is close enough to the mine, trigger it
+              if(dx < TILE_SIZE) {
+                console.log("Mine triggered!");
+                
+                // Create explosion
+                explosions.push({
+                  x: tower.x + TILE_SIZE / 2,
+                  y: tower.y + TILE_SIZE / 2,
+                  startTime: gameTime,
+                  duration: 500,
+                  maxRadius: TILE_SIZE * 2,
+                  color: 'rgba(255, 140, 0, 0.8)' // Orange color for explosion
+                });
+                
+                // Play explosion sound
+                playSound('explosion');
+                
+                // Damage enemies within explosion radius
+                for(let j = dns.length - 1; j >= 0; j--) {
+                  let otherDn = dns[j];
+                  if(otherDn && otherDn.state === 'approaching') {
+                    let enemyDist = Math.sqrt(
+                      Math.pow(otherDn.x + TILE_SIZE/2 - (tower.x + TILE_SIZE/2), 2) + 
+                      Math.pow(otherDn.row * TILE_SIZE + TILE_SIZE/2 - (tower.y + TILE_SIZE/2), 2)
+                    );
+                    
+                    if(enemyDist < TILE_SIZE * 2) {
+                      // Deal damage based on distance (more damage closer to the mine)
+                      let damage = 200 * (1 - enemyDist / (TILE_SIZE * 2));
+                      otherDn.hp -= damage;
+                      otherDn.hitTime = gameTime;
+                      
+                      if(otherDn.hp <= 0) {
+                        dns.splice(j, 1);
+                        clearedDNs++;
+                        updateProgressBar();
+                      }
+                    }
+                  }
+                }
+                
+                // Remove the mine
+                towers.splice(t, 1);
+                t--; // Adjust index since we removed an item
+                break;
+              }
+            }
+          }
+        }
+        
+        // Check for collision with towers - Make sure Rug Raiders stop and attack 
+        let collidingTower = null;
+        for(let t = 0; t < towers.length; t++) {
+          let tower = towers[t];
+          if(tower.type !== 'cdpmine' && tower.row === dn.row) {
+            // Check for direct collision
+            if(dn.x <= tower.x + TILE_SIZE && dn.x + TILE_SIZE/2 >= tower.x) {
+              collidingTower = tower;
+              
+              // For Rug Raiders, ensure they stop and attack
+              if(dn.enemyType === "rug" && !dn.isAttacking) {
+                dn.isAttacking = true;
+                dn.attackStartTime = gameTime;
+                console.log("Rug Raider stopped to attack tower");
+              }
+              break;
+            }
+            
+            // For Rug Raiders only, also check if tower is in front within range but not directly colliding
+            if(dn.enemyType === "rug" && !collidingTower) {
+              const RUG_ATTACK_RANGE = TILE_SIZE * 3; // Rug Raider range
+              if(tower.x - dn.x > 0 && tower.x - dn.x < RUG_ATTACK_RANGE) {
+                // Found tower in attack range, so stop and attack
+                collidingTower = tower;
+                
+                if(!dn.isAttacking) {
+                  dn.isAttacking = true;
+                  dn.attackStartTime = gameTime;
+                  console.log("Rug Raider stopped to attack tower from range");
+                }
+                break;
+              }
+            }
+          }
+        }
+        
+        // Handle collision with towers and perform attacks
+        if(collidingTower) {
+          // LTV Lunatic exploding behavior
+          if(dn.enemyType === "ltv") {
+            console.log("LTV Lunatic exploding!");
+            
+            // Create explosion
+            const LTV_EXPLOSION_RADIUS = TILE_SIZE * 1.5;
+            explosions.push({
+              x: dn.x + TILE_SIZE / 2,
+              y: dn.row * TILE_SIZE + TILE_SIZE / 2,
+              startTime: gameTime,
+              duration: 400,
+              maxRadius: LTV_EXPLOSION_RADIUS,
+              color: 'rgba(255, 255, 0, 0.8)' // Yellow color for LTV explosion
+            });
+            
+            // Play explosion sound
+            playSound('explosion');
+            
+            // Damage all towers in explosion radius
+            for(let j = towers.length - 1; j >= 0; j--) {
+              let affectedTower = towers[j];
+              let towerDist = Math.sqrt(
+                Math.pow(dn.x + TILE_SIZE/2 - (affectedTower.x + TILE_SIZE/2), 2) + 
+                Math.pow(dn.row * TILE_SIZE + TILE_SIZE/2 - (affectedTower.y + TILE_SIZE/2), 2)
+              );
+              
+              if(towerDist < LTV_EXPLOSION_RADIUS) {
+                // Damage the tower - 750 base damage with falloff based on distance
+                let damageMultiplier = 1 - (towerDist / LTV_EXPLOSION_RADIUS);
+                affectedTower.hp -= 750 * damageMultiplier;
+                
+                // Check if tower was destroyed
+                if(affectedTower.hp <= 0) {
+                  towers.splice(j, 1);
+                }
+              }
+            }
+            
+            // Remove the LTV enemy
+            dns.splice(i, 1);
+            clearedDNs++;
+            updateProgressBar();
+            continue;
+          }
+          
+          // Handle attack animation and damage for all non-LTV enemies
+          if(gameTime - dn.lastAttackTime >= dn.attackCooldown) {
+            // Set attacking state for all enemy types (basic and rug)
+            dn.isAttacking = true;
+            dn.attackStartTime = gameTime;
+            dn.lastAttackTime = gameTime;
+            
+            // Apply appropriate damage based on enemy type
+            let damage = DN_DAMAGE; // Default for basic enemy
+            if (dn.enemyType === "rug") {
+              damage = DN_DAMAGE * 1.5; // Rug Raider does more damage
+            }
+            
+            collidingTower.hp -= damage;
+            
+            if(collidingTower.hp <= 0) {
+              towers = towers.filter(t => t !== collidingTower);
+            }
+          }
+        } else {
+          // If not attacking a tower, check if reached left edge
+          // Reset attack state for Rug Raiders when no tower in range
+          if(dn.enemyType === "rug" && dn.isAttacking) {
+            // Check if there's no tower in range anymore
+            let towerInRange = false;
+            for(let t = 0; t < towers.length; t++) {
+              const tower = towers[t];
+              if(tower.row === dn.row && 
+                 tower.x - dn.x > 0 && 
+                 tower.x - dn.x < TILE_SIZE * 3) {
+                towerInRange = true;
+                break;
+              }
+            }
+            
+            if(!towerInRange) {
+              dn.isAttacking = false;
+              console.log("Rug Raider resuming movement - no towers in range");
+            }
+          }
+          
+          // Check if reached left edge
+          if(dn.x <= BEAM_WIDTH) {  // Trigger when enemy enters the beam area instead of at x=0
+            // If beam not used for this lane, activate it
+            if(!laneBeamsUsed[dn.row]) {
+              // Activate SuperCollateral Cannon
+              activateSuperBeam(dn.row);
+              
+              // Remove the enemy that triggered the beam
+              dns.splice(i, 1);
+              clearedDNs++;
+              
+              // Update progress
+              updateProgressBar();
+            } else {
+              // Game over if beam already used
+              gameOver = true;
+            }
+          }
+        }
+
+        // VC Vampire Summoning Logic
+        if (dn.enemyType === 'vcVampire' && gameTime - dn.lastSummonTime >= enemyTypes.vcVampire.summonInterval) {
+          console.log('VC Vampire summoning...');
+          dn.lastSummonTime = gameTime; // Reset summon timer
+          let lanesToSpawn = [];
+          // Check lane above
+          if (dn.row > 0) lanesToSpawn.push(dn.row - 1);
+          // Check lane below
+          if (dn.row < ROWS - 1) lanesToSpawn.push(dn.row + 1);
+          // If only one adjacent lane exists, add it again to ensure two spawns
+          if (lanesToSpawn.length === 1) lanesToSpawn.push(lanesToSpawn[0]);
+          // If no adjacent lanes (shouldn't happen in 5 rows), default to own lane
+          if (lanesToSpawn.length === 0) lanesToSpawn = [dn.row, dn.row];
+          
+          for (let s = 0; s < enemyTypes.vcVampire.summonCount; s++) {
+            // Calculate spawn position slightly behind the vampire
+            let spawnX = Math.min(CANVAS_WIDTH - TILE_SIZE, dn.x + TILE_SIZE / 2 + (s * TILE_SIZE / 4));
+            // Alternate between available adjacent lanes
+            let spawnLane = lanesToSpawn[s % lanesToSpawn.length]; 
+            
+            let spawnOptions = {
+              isSummoned: true,
+              spawnPosition: { x: spawnX, row: spawnLane } // Pass position explicitly
+            };
+            spawnDN(spawnOptions);
+          }
+        }
+      }
+      
+      // Update towers
+      towers.forEach(tower => {
+        if(tower.type === 'loanbeam') {
+          if(gameTime - tower.lastShotTime >= tower.shotInterval) {
+            let target = dns.find(dn => dn.row === tower.row && dn.state === 'approaching' && dn.x < CANVAS_WIDTH && dn.x > tower.x);
+            if(target) {
+              let bullet = {
+                x: tower.x + TILE_SIZE,
+                y: tower.row * TILE_SIZE + TILE_SIZE/2,
+                lane: tower.row,
+                damage: tower.damage,
+                speed: BULLET_SPEED,
+                targetX: target.x + TILE_SIZE/2,  // Target the center of the enemy
+                targetY: target.row * TILE_SIZE + TILE_SIZE/2  // Target the center of the enemy's lane
+              };
+              bullets.push(bullet);
+              tower.lastShotTime = gameTime;
+              playSound('shoot');
+            }
+          }
+        } else if(tower.type === 'genesis') {
+          if(gameTime - tower.lastShotTime >= tower.shotInterval) {
+            let hasTarget = false;
+            
+            // Check the current lane and adjacent lanes
+            const lanes = [];
+            // Add current lane
+            lanes.push(tower.row);
+            
+            // Add lane above if it exists
+            if(tower.row > 0) {
+              lanes.push(tower.row - 1);
+            }
+            
+            // Add lane below if it exists
+            if(tower.row < ROWS - 1) {
+              lanes.push(tower.row + 1);
+            }
+            
+            // Check for targets in all valid lanes
+            for(const lane of lanes) {
+              let target = dns.find(dn => dn.row === lane && dn.state === 'approaching' && dn.x < CANVAS_WIDTH && dn.x > tower.x);
+              if(target) {
+                let bullet = {
+                  x: tower.x + TILE_SIZE,
+                  y: lane * TILE_SIZE + TILE_SIZE/2,
+                  lane: lane,
+                  damage: tower.damage,
+                  speed: BULLET_SPEED,
+                  type: 'genesis'  // Set bullet type for Genesis Seeder
+                };
+                bullets.push(bullet);
+                hasTarget = true;
+              }
+            }
+            
+            // Only update last shot time and play sound if at least one bullet was fired
+            if(hasTarget) {
+              tower.lastShotTime = gameTime;
+              playSound('shoot');
+            }
+          }
+        } else if(tower.type === 'selfloan') {
+          if(gameTime - tower.lastSeedTime >= tower.interval) {
+            console.log("SRL tower generating seed at time:", gameTime);
+            // Add randomness to seed velocity and direction
+            let randomVx = 30 + Math.random() * 40; // Random horizontal velocity between 30-70
+            let randomVy = -120 - Math.random() * 60; // Random initial upward velocity between -120 and -180
+            let randomOffset = Math.random() * TILE_SIZE/2; // Random position offset
+            
+            seeds.push({
+              type: "pop",
+              x: tower.x + randomOffset,
+              y: tower.y + TILE_SIZE / 4,
+              targetY: tower.y + TILE_SIZE / 4,
+              vx: randomVx,
+              vy: randomVy
+            });
+            tower.lastSeedTime = gameTime;
+            playSound('seed_spawn');
+          }
+        }
+      });
+      
+      // Update falling seeds
+      for(let i = seeds.length - 1; i >= 0; i--) {
+        let seed = seeds[i];
+        let dt = delta / 1000; // Convert to seconds
+        
+        if(seed.type === "fall") {
+          seed.y += seed.vy * dt;
+          seed.x += (Math.sin(gameTime / 500 + i) * 5) * dt; // Gentle left-right drift
+          
+          // Check if seed has reached its target position
+          if(seed.y >= seed.targetY) {
+            seed.y = seed.targetY;
+            seed.vy = -seed.vy * 0.3; // Small bounce
+            
+            // If it's moving very slowly, stop it completely
+            if(Math.abs(seed.vy) < 10) {
+              seed.vy = 0;
+              seed.type = "static"; // Change type to static so it doesn't bounce anymore
+            }
+          }
+          
+          // Remove if it goes off-screen
+          if(seed.y > CANVAS_HEIGHT) {
+            seeds.splice(i, 1);
+          }
+        } else if(seed.type === "pop") {
+          seed.vy += 300 * dt; // Apply gravity
+          seed.x += seed.vx * dt;
+          seed.y += seed.vy * dt;
+          
+          if(seed.y >= seed.targetY && seed.vy > 0) {
+            seed.y = seed.targetY;
+            seed.vy = -seed.vy * 0.5; // Bounce
+            if(Math.abs(seed.vy) < 20) {
+              seed.vy = 0;
+              seed.vx = 0;
+            }
+          }
+        }
+      }
+      
+      // Update bullets and check collisions
+      for(let i = bullets.length - 1; i >= 0; i--) {
+        let bullet = bullets[i];
+        
+        // Check if bullet has target coordinates
+        if (bullet.targetX !== undefined && bullet.targetY !== undefined) {
+          // Move bullet towards target
+          if (bullet.x < bullet.targetX) {
+            bullet.x += bullet.speed * delta;
+          } else if (bullet.x > bullet.targetX) {
+            bullet.x -= bullet.speed * delta;
+          }
+          
+          if (bullet.y < bullet.targetY) {
+            bullet.y += bullet.speed * delta;
+          } else if (bullet.y > bullet.targetY) {
+            bullet.y -= bullet.speed * delta;
+          }
+        } else {
+          // Old-style bullets just move right
+          bullet.x += bullet.speed * delta;
+        }
+        
+        // Check if bullet hit an enemy
+        let hitEnemy = false;
+        for(let j = 0; j < dns.length; j++) {
+          let dn = dns[j];
+          if(dn.state === 'approaching' && dn.row === bullet.lane) {
+            let dx = dn.x + TILE_SIZE/2 - bullet.x;
+            let dy = (dn.row * TILE_SIZE + TILE_SIZE/2) - bullet.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if(distance < TILE_SIZE/2) {
+              // Create an explosion effect for Genesis Seeder bullets
+              if (bullet.type === 'genesis') {
+                // Create a small orange explosion
+                explosions.push({
+                  x: bullet.x,
+                  y: bullet.y,
+                  startTime: gameTime,
+                  duration: 300,
+                  maxRadius: TILE_SIZE * 0.75,
+                  color: 'rgba(255, 140, 0, 0.8)' // Orange color for Genesis bullet explosion
+                });
+                
+                // Play a subtle explosion sound
+                playSound('gs_impact');
+              }
+              
+              // Damage enemy
+              dn.hp -= bullet.damage;
+              dn.hitTime = gameTime;
+              
+              if(dn.hp <= 0) {
+                dns.splice(j, 1);
+                clearedDNs++;
+                updateProgressBar();
+              }
+              
+              hitEnemy = true;
+              break;
+            }
+          }
+        }
+        
+        // Remove bullet if it hit an enemy, reached its target, or went off screen
+        if(hitEnemy || 
+           (bullet.targetX !== undefined && 
+            Math.abs(bullet.x - bullet.targetX) < bullet.speed * delta && 
+            Math.abs(bullet.y - bullet.targetY) < bullet.speed * delta) ||
+           bullet.x > CANVAS_WIDTH) {
+          bullets.splice(i, 1);
+        }
+      }
+      
+      // Update explosions
+      explosions = explosions.filter(exp => gameTime - exp.startTime < exp.duration);
+      
+      // Update ambient sounds
+      updateAmbientSounds();
+      
+      // Check for level completion - only if we've actually spawned and defeated enemies
+      // Ensure summoned enemies don't prevent level completion
+      const nonSummonedEnemies = dns.filter(dn => !dn.isSummoned);
+      if(spawnedDNs >= maxDNsThisLevel && nonSummonedEnemies.length === 0 && clearedDNs >= 1) {
+        document.getElementById('completed-level').innerText = currentLevel;
+        document.getElementById('next-level').innerText = currentLevel + 1;
+        document.getElementById('level-complete-overlay').style.display = 'flex';
+        levelCompleteOverlayVisible = true;
+        console.log("LEVEL COMPLETE! All enemies defeated.");
+      }
+    }
+
+    // Function to update the progress bar based on enemies cleared
+    function updateProgressBar() {
+      // Calculate percentage based on cleared enemies vs total enemies for this level
+      let progressElem = document.getElementById("progress");
+      let progressPercent = (clearedDNs / maxDNsThisLevel) * 100;
+      progressElem.style.width = progressPercent + "%";
+      console.log(`Progress updated: ${clearedDNs}/${maxDNsThisLevel} enemies cleared (${progressPercent.toFixed(1)}%)`);
+    }
+
+    // Function to update tutorial content based on current level
+    function updateTutorialContent() {
+      let tutorialTitle = document.querySelector('#tutorial-overlay div h1');
+      let tutorialContent = document.querySelector('#tutorial-overlay div p');
+      let content = '';
+      
+      // Update the title based on level
+      if(currentLevel === 1) {
+        tutorialTitle.textContent = "Tutorial";
+      } else {
+        tutorialTitle.textContent = "New Item Unlocked!";
+        tutorialTitle.style.color = "#ff8c00"; // Set title to orange color
+      }
+      
+      // Base content that shows on all tutorial screens
+      content += '<div style="display: flex; flex-direction: column; gap: 15px;">';
+      
+      // Add content based on level
+      if(currentLevel === 1) {
+        // Level 1: Show first two items - original tutorial format
+        content += `
+          <span><strong>For this tutorial level you get 200 Seed funds - afterwards it's going to get harder!</strong></span><br/>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="assets/selfloan.png" alt="Self-Repaying Loan" style="width: 50px; height: 50px;">
+            <span><strong>Self-Repaying Loan:</strong> Generates seeds over time that can be collected for DRV.</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="assets/loan_beam.png" alt="Loan Beam" style="width: 50px; height: 50px;">
+            <span><strong>Loan Beam:</strong> Fires bullets to damage Debt Zombies.</span>
+          </div>
+          <br>
+        `;
+      } else if(currentLevel === 2) {
+        // Level 2: Only show the newly unlocked CDP Mine
+        content += `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="assets/cdp_mine.png" alt="CDP Mine" style="width: 50px; height: 50px;">
+            <span><strong>CDP Mine:</strong> Explodes when enemies get close, dealing massive damage.</span>
+          </div>
+        `;
+      } else if(currentLevel === 3) {
+        // Level 3: Only show the newly unlocked Stablecoin
+        content += `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="assets/stablecoin_barrier.png" alt="SuperSeed Stablecoin" style="width: 50px; height: 50px;">
+            <span><strong>Superseed Stablecoin:</strong> A barrier with high HP that blocks enemies.</span>
+          </div>
+        `;
+      } else if(currentLevel === 5) {
+        // Level 5: Show the newly unlocked Genesis Seeder
+        content += `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="assets/genesis_seeder.png" alt="Genesis Seeder" style="width: 50px; height: 50px;">
+            <span><strong>Genesis Seeder:</strong> A powerful tower that can fire in three lanes at once!</span>
+          </div>
+        `;
+      } else {
+        // Level 4+: Show "New level!" with no specific item
+        content += `
+          <h2 style="color: #ff8c00; margin-bottom: 15px;">Level ${currentLevel} Started!</h2>
+          <div style="text-align: center;">
+            <p>More enemies await. Use all your available defenses!</p>
+          </div>
+        `;
+      }
+      
+      // Close the container and add instruction text
+      content += '</div>';
+      content += '<p style="margin-top: 20px;">Place items by selecting them from the shop and clicking on a grid tile.<br><br>Press any key to start the game.</p>';
+      
+      tutorialContent.innerHTML = content;
+    }
+
+    function drawGame() {
+      if (!ctx) {
+        console.error("Canvas context not initialized!");
+        return;
+      }
+      
+      try {
+        // Clear the canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw background
+        if(backgroundImage && backgroundImage.complete) {
+          ctx.drawImage(backgroundImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        } else {
+          // Fallback to solid color if background image isn't loaded
+          ctx.fillStyle = '#222';
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        // Draw Supercollateral Beam space
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, BEAM_WIDTH, CANVAS_HEIGHT);
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, BEAM_WIDTH, CANVAS_HEIGHT);
+        
+        // Draw the individual beam lanes with the superBeamImage
+        for (let row = 0; row < ROWS; row++) {
+          // Draw background for each lane
+          ctx.fillStyle = laneBeamsUsed[row] ? 'rgba(255, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+          ctx.fillRect(0, row * TILE_SIZE, BEAM_WIDTH, TILE_SIZE);
+          
+          // Draw beam emitter image in each lane
+          if (superBeamImage && superBeamImage.complete) {
+            // Scale the beam image to fit snugly within the lane height
+            const beamHeight = TILE_SIZE * 0.95; // 95% of tile height to fit snugly
+            const beamWidth = beamHeight * 0.8; // Maintain aspect ratio approximately
+            
+            // Position the image centered in the beam area
+            const xPos = (BEAM_WIDTH - beamWidth) / 2;
+            const yPos = row * TILE_SIZE + (TILE_SIZE - beamHeight) / 2;
+            
+            // Use red tint for used beams, normal for available
+            if (laneBeamsUsed[row]) {
+              ctx.globalAlpha = 0.5;
+              ctx.drawImage(superBeamImage, xPos, yPos, beamWidth, beamHeight);
+              ctx.globalAlpha = 1.0;
+            } else {
+              ctx.drawImage(superBeamImage, xPos, yPos, beamWidth, beamHeight);
+            }
+          } else {
+            // Fallback if image isn't loaded
+            ctx.fillStyle = laneBeamsUsed[row] ? '#ff3333' : '#33ff33';
+            ctx.fillRect(BEAM_WIDTH/2 - TILE_SIZE/4, row * TILE_SIZE + TILE_SIZE/4, TILE_SIZE/2, TILE_SIZE/2);
+          }
+          
+          // Add border around beam area for each lane
+          ctx.strokeStyle = laneBeamsUsed[row] ? 'rgba(255, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.5)';
+          ctx.strokeRect(0, row * TILE_SIZE, BEAM_WIDTH, TILE_SIZE);
+        }
+        
+        // Draw lane beam effects
+        let now = gameTime;
+        for(let lane = 0; lane < ROWS; lane++) {
+          if(now < laneBeamEffect[lane]) {
+            // Calculate how far into the effect we are (0.0 - 1.0)
+            const progress = (now - (laneBeamEffect[lane] - BEAM_DURATION)) / BEAM_DURATION;
+            
+            // Add a bright flash at the beginning of the beam effect
+            if (progress < 0.2) {
+              // Initial flash effect
+              const flashOpacity = 0.8 - progress * 4; // Fade out quickly
+              ctx.fillStyle = `rgba(255, 255, 255, ${flashOpacity})`;
+              ctx.fillRect(0, lane * TILE_SIZE, CANVAS_WIDTH, TILE_SIZE);
+            }
+            
+            // Draw the main beam with gradient
+            const beamThickness = TILE_SIZE * (0.4 - progress * 0.2); // Beam gets thinner over time
+            const beamY = lane * TILE_SIZE + (TILE_SIZE - beamThickness) / 2;
+            
+            const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
+            gradient.addColorStop(0, 'rgba(255, 50, 50, 0.9)');      // Bright red at origin
+            gradient.addColorStop(0.1, 'rgba(255, 200, 200, 0.9)');  // Inner beam glow
+            gradient.addColorStop(0.3, 'rgba(255, 150, 50, 0.8)');   // Orange in middle
+            gradient.addColorStop(1, 'rgba(255, 200, 50, 0.4)');     // Faded yellow at end
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, beamY, CANVAS_WIDTH, beamThickness);
+            
+            // Add glow effect at the beam source
+            const glowGradient = ctx.createRadialGradient(
+              BEAM_WIDTH/2, lane * TILE_SIZE + TILE_SIZE/2, 0,
+              BEAM_WIDTH/2, lane * TILE_SIZE + TILE_SIZE/2, BEAM_WIDTH
+            );
+            glowGradient.addColorStop(0, 'rgba(255, 100, 50, 0.9)');
+            glowGradient.addColorStop(1, 'rgba(255, 100, 50, 0)');
+            
+            ctx.fillStyle = glowGradient;
+            ctx.fillRect(0, lane * TILE_SIZE, BEAM_WIDTH, TILE_SIZE);
+            
+            // Add energy particles along the beam
+            const particleCount = 15;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            
+            for (let i = 0; i < particleCount; i++) {
+              const particleX = (CANVAS_WIDTH * i / particleCount) * (1 - progress * 0.5);
+              const particleSize = 3 + Math.random() * 5;
+              const particleOffset = Math.sin((progress * 10) + (i * 0.5)) * TILE_SIZE * 0.15;
+              
+              ctx.beginPath();
+              ctx.arc(
+                particleX, 
+                lane * TILE_SIZE + TILE_SIZE/2 + particleOffset, 
+                particleSize,
+                0, 
+                Math.PI * 2
+              );
+              ctx.fill();
+            }
+            
+            // Add pulsing edge effect based on progress
+            const pulseOpacity = 0.3 + Math.sin(progress * Math.PI * 8) * 0.2;
+            ctx.fillStyle = `rgba(255, 255, 255, ${pulseOpacity})`;
+            ctx.fillRect(0, lane * TILE_SIZE, CANVAS_WIDTH * (1 - progress), TILE_SIZE/12);
+            ctx.fillRect(0, lane * TILE_SIZE + TILE_SIZE - TILE_SIZE/12, CANVAS_WIDTH * (1 - progress), TILE_SIZE/12);
+          }
+        }
+        
+        // Draw grid with more visible lines
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 2;
+        
+        // Draw vertical lines starting from GRID_START_X
+        for(let x = GRID_START_X; x <= CANVAS_WIDTH; x += TILE_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, CANVAS_HEIGHT);
+          ctx.stroke();
+        }
+        
+        // Draw horizontal lines
+        for(let y = 0; y <= CANVAS_HEIGHT; y += TILE_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(GRID_START_X, y);
+          ctx.lineTo(CANVAS_WIDTH, y);
+          ctx.stroke();
+        }
+        
+        // Draw towers
+        for (let i = 0; i < towers.length; i++) {
+          let tower = towers[i];
+          try {
+            // Calculate placement animation
+            let placementProgress = Math.min(1, (gameTime - tower.placementTime) / 500); // 500ms animation
+            let scale = 0.5 + (placementProgress * 0.5); // Scale from 0.5 to 1
+            
+            // Save context state
+            ctx.save();
+            
+            // Apply scaling from center
+            ctx.translate(tower.x + TILE_SIZE/2, tower.y + TILE_SIZE/2);
+            ctx.scale(scale, scale);
+            ctx.translate(-(tower.x + TILE_SIZE/2), -(tower.y + TILE_SIZE/2));
+            
+            if(tower.type === "stablecoin") {
+              ctx.drawImage(stablecoinBarrierImage, tower.x, tower.y, TILE_SIZE, TILE_SIZE);
+            } else if(tower.type === "loanbeam") {
+              ctx.drawImage(loanBeamImage, tower.x, tower.y, TILE_SIZE, TILE_SIZE);
+            } else if(tower.type === "cdpmine") {
+              ctx.drawImage(cdpMineImage, tower.x, tower.y, TILE_SIZE, TILE_SIZE);
+            } else if(tower.type === "selfloan") {
+              ctx.drawImage(selfLoanImage, tower.x, tower.y, TILE_SIZE, TILE_SIZE);
+            } else if(tower.type === "genesis") {
+              ctx.drawImage(genesisSeederImage, tower.x, tower.y, TILE_SIZE, TILE_SIZE);
+            }
+            
+            // Restore context state
+            ctx.restore();
+            
+            // Draw HP bar for towers that have HP
+            if(tower.hp) {
+              let maxHp = shopItems[tower.type].hp;
+              let healthBarWidth = TILE_SIZE;
+              let healthBarHeight = 5;
+              let healthBarY = tower.y + TILE_SIZE - 10;
+              
+              // Background of health bar
+              ctx.fillStyle = '#000';
+              ctx.fillRect(tower.x, healthBarY, healthBarWidth, healthBarHeight);
+              
+              // Health bar fill
+              let healthPercent = tower.hp / maxHp;
+              ctx.fillStyle = healthPercent > 0.6 ? '#0f0' : healthPercent > 0.3 ? '#ff0' : '#f00';
+              ctx.fillRect(tower.x, healthBarY, healthBarWidth * healthPercent, healthBarHeight);
+              
+              // Health bar border
+              ctx.strokeStyle = '#fff';
+              ctx.strokeRect(tower.x, healthBarY, healthBarWidth, healthBarHeight);
+            }
+          } catch(e) {
+            console.error("Error drawing tower:", e);
+            // Fallback to colored rectangle if image fails to load
+            ctx.fillStyle = tower.type === "stablecoin" ? "#007bff" :
+                           tower.type === "loanbeam" ? "#28a745" :
+                           tower.type === "cdpmine" ? "#dc3545" : "#ffc107";
+            ctx.fillRect(tower.x, tower.y, TILE_SIZE, TILE_SIZE);
+          }
+        }
+        
+        // Draw enemies
+        for (let i = 0; i < dns.length; i++) {
+          let dn = dns[i];
+          try {
+            // Get the appropriate animation frames based on enemy state
+            let framesToUse = dn.animationFrames;
+            
+            // Use attack frames if the enemy is attacking
+            if (dn.isAttacking && dn.enemyType === "basic" && enemyTypes.basic.attackFrames && enemyTypes.basic.attackFrames.length > 0) {
+              framesToUse = enemyTypes.basic.attackFrames;
+            } else if (dn.isAttacking && dn.enemyType === "ltv" && enemyTypes.ltv.attackFrames && enemyTypes.ltv.attackFrames.length > 0) {
+              framesToUse = enemyTypes.ltv.attackFrames;
+            } else if (dn.isAttacking && dn.enemyType === "rug" && enemyTypes.rug.attackFrames && enemyTypes.rug.attackFrames.length > 0) {
+              framesToUse = enemyTypes.rug.attackFrames;
+            }
+            
+            // Draw the appropriate frame
+            if (framesToUse && framesToUse.length > 0) {
+              const frameIndex = Math.min(dn.frameIndex || 0, framesToUse.length - 1);
+              const frame = framesToUse[frameIndex];
+              
+              if (frame && frame.complete) {
+                // Apply fade-in effect if needed
+                let originalAlpha = ctx.globalAlpha; // Store original alpha
+                // console.log(`Enemy ${i}: isSummoned=${dn.isSummoned}, fadeStartTime=${dn.fadeStartTime}, originalAlpha=${originalAlpha}`); // DEBUG
+                if (dn.isSummoned && dn.fadeStartTime) {
+                  let elapsed = gameTime - dn.fadeStartTime;
+                  let fadeProgress = Math.min(1, elapsed / FADE_IN_DURATION);
+                  console.log(`  -> Fading in: elapsed=${elapsed.toFixed(0)}ms, duration=${FADE_IN_DURATION}ms, progress=${fadeProgress.toFixed(2)}`); // DEBUG
+                  ctx.globalAlpha = fadeProgress;
+                  // Once fully faded in, remove the start time to stop calculating
+                  if (fadeProgress === 1) {
+                    delete dn.fadeStartTime; 
+                  }
+                }
+
+                // Special handling for Rug Raider due to its wider aspect ratio (1920x1080)
+                if (dn.enemyType === "rug") {
+                  // Calculate dimensions that maintain aspect ratio but fit within tile
+                  const aspectRatio = 1920 / 1080;
+                  const height = TILE_SIZE;
+                  const width = height * aspectRatio;
+                  // Center the image horizontally within the tile
+                  const xOffset = (width - TILE_SIZE) / 2;
+                  ctx.drawImage(frame, dn.x - xOffset, dn.row * TILE_SIZE, width, height);
+                } else {
+                  // Increase size slightly for Tankenomics
+                  let drawSize = TILE_SIZE;
+                  let drawX = dn.x;
+                  let drawY = dn.row * TILE_SIZE;
+                  if (dn.enemyType === 'tankenomics') { // Renamed key
+                    drawSize = TILE_SIZE * 1.1; // 10% bigger
+                    drawX = dn.x - (TILE_SIZE * 0.05); // Adjust x to keep centered
+                    drawY = dn.row * TILE_SIZE - (TILE_SIZE * 0.05); // Adjust y
+                  }
+                  // Normal square drawing for other enemy types
+                  ctx.drawImage(frame, drawX, drawY, drawSize, drawSize);
+                }
+
+                // Restore original alpha
+                ctx.globalAlpha = originalAlpha;
+
+              } else {
+                // Fallback if frame isn't loaded
+                ctx.fillStyle = dn.color || '#dc3545';
+                ctx.fillRect(dn.x, dn.row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+              }
+            } else {
+              // Default fallback for any unknown enemy type or missing frames
+              ctx.fillStyle = (gameTime - dn.hitTime < HIT_FLASH_DURATION) ? '#f00' : (dn.color || '#dc3545');
+              ctx.fillRect(dn.x, dn.row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
+            
+            // Draw health bar for all enemies
+            if(dn.hp !== undefined && dn.maxHp !== undefined) {
+              let healthBarWidth = TILE_SIZE;
+              let healthBarHeight = 5;
+              let healthBarY = dn.row * TILE_SIZE + TILE_SIZE - 10;
+              
+              // Background of health bar
+              ctx.fillStyle = '#000';
+              ctx.fillRect(dn.x, healthBarY, healthBarWidth, healthBarHeight);
+              
+              // Health bar fill
+              let healthPercent = dn.hp / dn.maxHp;
+              ctx.fillStyle = healthPercent > 0.6 ? '#0f0' : healthPercent > 0.3 ? '#ff0' : '#f00';
+              ctx.fillRect(dn.x, healthBarY, healthBarWidth * healthPercent, healthBarHeight);
+              
+              // Health bar border
+              ctx.strokeStyle = '#fff';
+              ctx.strokeRect(dn.x, healthBarY, healthBarWidth, healthBarHeight);
+            }
+          } catch(e) {
+            console.error("Error drawing enemy:", e);
+            // Ultimate fallback for any errors
+            try {
+              ctx.fillStyle = dn.color || '#ff0000';
+              ctx.fillRect(dn.x, dn.row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            } catch(e2) {
+              console.error("Failed even fallback drawing:", e2);
+            }
+          }
+        }
+        
+        // Draw seeds AFTER other elements so they're always on top
+        for (let i = 0; i < seeds.length; i++) {
+          let seed = seeds[i];
+          try {
+            ctx.drawImage(seedImage, seed.x, seed.y, TILE_SIZE/2, TILE_SIZE/2);
+          } catch(e) {
+            console.error("Error drawing seed:", e);
+            // Fallback to colored circle if image fails to load
+            ctx.fillStyle = '#ffc107';
+            ctx.beginPath();
+            ctx.arc(seed.x + TILE_SIZE/4, seed.y + TILE_SIZE/4, TILE_SIZE/4, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+        
+        // Draw bullets
+        for (let i = 0; i < bullets.length; i++) {
+          let bullet = bullets[i];
+          try {
+            // Check if bullet is from Genesis Seeder
+            if (bullet.type === 'genesis') {
+              if (gsBulletImage && gsBulletImage.complete) {
+                ctx.drawImage(gsBulletImage, 
+                  bullet.x - TILE_SIZE/8, 
+                  bullet.y - TILE_SIZE/8, 
+                  TILE_SIZE/4, 
+                  TILE_SIZE/4
+                );
+              } else {
+                // Fallback to green circle for Genesis bullets
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, TILE_SIZE/8, 0, 2 * Math.PI);
+                ctx.fill();
+              }
+            } else {
+              // Regular bullet drawing
+              if (bulletImage && bulletImage.complete) {
+                ctx.drawImage(bulletImage, 
+                  bullet.x - TILE_SIZE/8, 
+                  bullet.y - TILE_SIZE/8, 
+                  TILE_SIZE/4, 
+                  TILE_SIZE/4
+                );
+              } else {
+                // Fallback to circle if image isn't loaded
+                ctx.fillStyle = '#28a745';
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, TILE_SIZE/8, 0, 2 * Math.PI);
+                ctx.fill();
+              }
+            }
+          } catch(e) {
+            console.error("Error drawing bullet:", e);
+            // Ultimate fallback
+            ctx.fillStyle = bullet.type === 'genesis' ? '#00ff00' : '#28a745';
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, TILE_SIZE/8, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+        
+        // Draw explosions
+        for (let i = 0; i < explosions.length; i++) {
+          let exp = explosions[i];
+          let progress = (gameTime - exp.startTime) / exp.duration;
+          let radius = exp.maxRadius * progress;
+          
+          // Draw explosion circle
+          ctx.beginPath();
+          ctx.arc(exp.x, exp.y, radius, 0, 2 * Math.PI);
+          ctx.fillStyle = exp.color;
+          ctx.fill();
+          
+          // Add glow effect
+          ctx.beginPath();
+          ctx.arc(exp.x, exp.y, radius * 1.2, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(255, 140, 0, 0.3)';
+          ctx.fill();
+        }
+        
+        // Draw selected item shadow
+        if (selectedItem !== null) {
+          // Draw the item preview at the mouse position regardless of position
+          ctx.globalAlpha = 0.5;
+          if(selectedItem === "stablecoin") {
+            ctx.drawImage(stablecoinBarrierImage, mouseX, mouseY, TILE_SIZE, TILE_SIZE);
+          } else if(selectedItem === "loanbeam") {
+            ctx.drawImage(loanBeamImage, mouseX, mouseY, TILE_SIZE, TILE_SIZE);
+          } else if(selectedItem === "cdpmine") {
+            ctx.drawImage(cdpMineImage, mouseX, mouseY, TILE_SIZE, TILE_SIZE);
+          } else if(selectedItem === "selfloan") {
+            ctx.drawImage(selfLoanImage, mouseX, mouseY, TILE_SIZE, TILE_SIZE);
+          } else if(selectedItem === "genesis") {
+            ctx.drawImage(genesisSeederImage, mouseX, mouseY, TILE_SIZE, TILE_SIZE);
+          }
+          ctx.globalAlpha = 1.0;
+        }
+      } catch(e) {
+        console.error("Error in drawGame:", e);
+      }
+    }
+
+    // Initialization function
+    window.onload = function() {
+      console.log("Window loaded, initializing game...");
+      
+      // Initialize canvas and context
+      canvas = document.getElementById('gameCanvas');
+      if (!canvas) {
+        console.error("Could not find canvas element 'gameCanvas'");
+        return;
+      }
+      
+      ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error("Could not get 2D context from canvas");
+        return;
+      }
+      
+      // Set canvas dimensions if needed
+      if (canvas.width !== CANVAS_WIDTH || canvas.height !== CANVAS_HEIGHT) {
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+        console.log(`Set canvas dimensions to ${CANVAS_WIDTH}x${CANVAS_HEIGHT}`);
+      }
+      
+      // Initialize game state variables
+      lastTime = performance.now();
+      gameTime = 0;
+      levelStartTime = 0;
+      totalSpawnedByTypeThisLevel = { basic: 0, ltv: 0, rug: 0, vcVampire: 0, tankenomics: 0 }; // Reset counter
+      nextSpawnTime = levelSetupDuration + MIN_SPAWN_INTERVAL;
+      lastSpawnedLane = -1;
+      nextFallingSeedTime = levelSetupDuration + FALLING_SEED_INTERVAL;
+      drv = levelSettings[currentLevel].startingDRV;
+      selectedItem = null;
+      removeMode = false;
+      
+      // Initialize game object arrays
+      towers = [];
+      dns = [];
+      seeds = [];
+      bullets = [];
+      explosions = [];
+      
+      // Initialize beam tracking
+      laneBeamsUsed = new Array(ROWS).fill(false);
+      laneBeamEffect = new Array(ROWS).fill(0);
+      
+      // Initialize enemy count variables
+      spawnedDNs = 0;
+      clearedDNs = 0;
+      
+      // Reset tutorial flags
+      enemyTutorialShown.ltv = false;
+      enemyTutorialShown.rug = false;
+      enemyTutorialShown.vcVampire = false;
+      enemyTutorialShown.tankenomics = false; // Renamed key & Reset
+      genesisSeederTutorialShown = false;
+      
+      // Show intro screen and hide other overlays
+      document.getElementById('intro-screen').style.display = 'flex';
+      document.getElementById('tutorial-overlay').style.display = 'none';
+      document.getElementById('enemy-popup-overlay').style.display = 'none';
+      document.getElementById('level-complete-overlay').style.display = 'none';
+      document.getElementById('pause-overlay').style.display = 'none';
+      document.getElementById('countdown-timer').style.display = 'none';
+      
+      // Set initial game state
+      introScreenActive = true;
+      tutorialOverlayActive = false;
+      enemyPopupOverlayActive = false;
+      levelCompleteOverlayVisible = false;
+      gamePaused = false;
+      gameOver = false;
+      
+      // Initialize UI
+      updateDRVDisplay();
+      
+      // Force initial draw to show grid
+      drawGame();
+      
+      // Apply custom audio volume levels
+      applyAudioVolumes();
+      
+      // Set up volume controls
+      setupVolumeControls();
+      
+      // Set up event listeners
+      setupEventListeners();
+      
+      // Set up level skip dropdown (for testing)
+      setupLevelSkip();
+      
+      // Start background music
+      playBackgroundMusic();
+      
+      // Start the game loop
+      requestAnimationFrame(gameLoop);
+      
+      console.log("Game initialization complete");
+    };
+
+    // Function to get total enemies for current level
+    function getTotalEnemiesForLevel() {
+      const settings = levelSettings[currentLevel];
+      if (!settings) {
+        console.error("No settings found for level:", currentLevel);
+        return 0;
+      }
+      
+      // Sum up all enemy types for this level
+      const total = (settings.enemies.basic || 0) 
+                  + (settings.enemies.ltv || 0) 
+                  + (settings.enemies.rug || 0) 
+                  + (settings.enemies.vcVampire || 0) // Add vcVampire count
+                  + (settings.enemies.tankenomics || 0); // Renamed key
+      console.log(`Total enemies for level ${currentLevel}: ${total}`);
+      return total;
+    }
+
+    // Function to spawn enemies
+    function spawnDN(options = {}) { // Added options object
+      const { isSummoned = false, spawnPosition = null } = options; // Destructure options
+    
+      console.log("Attempting to spawn enemy...", options);
+      console.log(`Current level: ${currentLevel}`);
+      console.log(`Spawned DNs: ${spawnedDNs}`);
+      console.log(`Max DNs this level: ${maxDNsThisLevel}`);
+      
+      // If it's a summoned enemy, don't count it towards the level total
+      if (!isSummoned) {
+        // Check if we've reached the maximum number of enemies for this level
+        if (spawnedDNs >= maxDNsThisLevel) {
+          console.log("Maximum enemies reached for this level");
+          return null;
+        }
+      }
+      
+      // Choose a lane that's different from the last one if possible
+      let lane = Math.floor(Math.random() * ROWS);
+      if(ROWS > 1 && lane === lastSpawnedLane) {
+        lane = (lane + 1) % ROWS;
+      }
+      lastSpawnedLane = lane;
+      
+      // Start enemy exactly at the right edge of the screen - no offset
+      let startX = CANVAS_WIDTH;
+      if (spawnPosition && spawnPosition.x !== undefined) {
+        startX = spawnPosition.x;
+      } else {
+        // Choose a lane that's different from the last one if possible (only for non-summoned)
+        if (!isSummoned) {
+          lane = Math.floor(Math.random() * ROWS);
+          if(ROWS > 1 && lane === lastSpawnedLane) {
+            lane = (lane + 1) % ROWS;
+          }
+          lastSpawnedLane = lane;
+        }
+      }
+      
+      // If spawnPosition provides a row, use it
+      if (spawnPosition && spawnPosition.row !== undefined) {
+        lane = spawnPosition.row;
+      }
+      
+      // Select enemy type based on current level settings (only if not summoned)
+      let enemyType = "basic"; // Default
+      if (!isSummoned) {
+        const settings = levelSettings[currentLevel];
+        if (!settings) {
+          console.error("No settings found for level:", currentLevel);
+          return null;
+        }
+
+        // Calculate total enemies spawned by type
+        const spawnedByType = {
+          basic: dns.filter(dn => dn.enemyType === "basic").length,
+          ltv: dns.filter(dn => dn.enemyType === "ltv").length,
+          rug: dns.filter(dn => dn.enemyType === "rug").length,
+          vcVampire: dns.filter(dn => dn.enemyType === "vcVampire").length, // Include vcVampire count
+          tankenomics: dns.filter(dn => dn.enemyType === "tankenomics").length // Include tankenomics count
+        };
+
+        console.log("Enemies spawned by type:", spawnedByType);
+        console.log("Level settings:", settings.enemies);
+        console.log("Total Spawned By Type So Far:", totalSpawnedByTypeThisLevel); // Log the new counter
+
+        // Determine which enemy type to spawn based on remaining counts
+        const remainingByType = {
+          basic: (settings.enemies.basic || 0) - (totalSpawnedByTypeThisLevel.basic || 0),
+          ltv: (settings.enemies.ltv || 0) - (totalSpawnedByTypeThisLevel.ltv || 0),
+          rug: (settings.enemies.rug || 0) - (totalSpawnedByTypeThisLevel.rug || 0),
+          vcVampire: (settings.enemies.vcVampire || 0) - (totalSpawnedByTypeThisLevel.vcVampire || 0), // Use new counter
+          tankenomics: (settings.enemies.tankenomics || 0) - (totalSpawnedByTypeThisLevel.tankenomics || 0) // Renamed key
+        };
+
+        console.log("Remaining enemies by type:", remainingByType);
+
+        // Create array of possible enemy types
+        const possibleTypes = [];
+        if (remainingByType.basic > 0) possibleTypes.push("basic");
+        if (remainingByType.ltv > 0) possibleTypes.push("ltv");
+        if (remainingByType.rug > 0) possibleTypes.push("rug");
+        if (remainingByType.vcVampire > 0) possibleTypes.push("vcVampire"); // Include vcVampire
+        if (remainingByType.tankenomics > 0) possibleTypes.push("tankenomics"); // Renamed key
+
+        console.log("Possible enemy types:", possibleTypes);
+
+        // If no possible types, return null
+        if (possibleTypes.length === 0) {
+          console.log("No more enemies to spawn for this level");
+          return null;
+        }
+
+        // Randomly select from possible types
+        enemyType = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
+        console.log("Selected enemy type:", enemyType);
+      } else {
+        enemyType = 'basic'; // Summoned enemies are always basic for now
+        console.log("Spawning summoned basic enemy");
+      }
+      
+      try {
+        // Set up enemy based on its type
+        const enemy = {
+          enemyType,
+          row: lane,
+          x: startX,
+          y: lane * TILE_SIZE,
+          state: 'approaching',
+          lastAttackTime: gameTime,
+          attackCooldown: 1000,
+          isSummoned: isSummoned, // Make sure the flag is added to the object
+          hitTime: 0,
+          frameIndex: 0,
+          frameTimer: 0,
+          frameDuration: 150
+        };
+        
+        // Add type-specific properties
+        if(enemyType === "basic") {
+          enemy.hp = DN_BASE_HP;
+          enemy.maxHp = DN_BASE_HP;
+          enemy.speed = BASIC_ENEMY_SPEED;
+          enemy.color = '#dc3545';
+          enemy.animationFrames = enemyTypes.basic.walkFrames;
+          enemy.attackFrames = enemyTypes.basic.attackFrames;
+          enemy.isAttacking = false;
+          enemy.attackDuration = 500; // Duration of attack animation in ms
+          enemy.attackStartTime = 0;
+        } 
+        else if(enemyType === "ltv") {
+          enemy.hp = DN_BASE_HP * 1.5;
+          enemy.maxHp = DN_BASE_HP * 1.5;
+          enemy.speed = LTV_ENEMY_SPEED;
+          enemy.color = '#ffc107';
+          enemy.animationFrames = enemyTypes.ltv.walkFrames;
+          enemy.attackFrames = enemyTypes.ltv.attackFrames;
+          enemy.isAttacking = false;
+          enemy.attackDuration = 500; // Duration of attack animation in ms
+          enemy.attackStartTime = 0;
+          
+          // Check if we should show the LTV tutorial
+          if(!enemyTutorialShown.ltv) {
+            enemyTutorialShown.ltv = true;
+            document.getElementById('enemy-popup-content').innerHTML = `
+              <h2>New Enemy: Loan-to-Value (LTV) Lunatic</h2>
+              <p>This stronger enemy has more health and moves faster! Use multiple defenses to stop it.</p>
+              <div class="enemy-preview">
+                <img src="assets/ltv_1.png" alt="LTV Lunatic" style="width: 64px; height: 64px;">
+                <div class="enemy-stats">
+                  <p><strong>Health:</strong> ${DN_BASE_HP * 1.5}</p>
+                  <p><strong>Speed:</strong> Faster than basic enemies</p>
+                  <p><strong>Special:</strong> Explodes on death, damaging nearby towers</p>
+                </div>
+              </div>
+            `;
+            document.getElementById('enemy-popup-overlay').style.display = 'flex';
+            enemyPopupOverlayActive = true;
+            gamePaused = true;
+          }
+        } 
+        else if(enemyType === "rug") {
+          enemy.hp = DN_BASE_HP * 2;
+          enemy.maxHp = DN_BASE_HP * 2;
+          enemy.speed = RUG_ENEMY_SPEED;
+          enemy.color = '#6f42c1';
+          enemy.lastDrainTime = gameTime;
+          enemy.animationFrames = enemyTypes.rug.walkFrames;
+          enemy.attackFrames = enemyTypes.rug.attackFrames;
+          enemy.isAttacking = false;
+          enemy.attackDuration = 500; // Duration of attack animation in ms
+          enemy.attackStartTime = 0;
+          
+          // Check if we should show the RUG tutorial
+          if(!enemyTutorialShown.rug) {
+            enemyTutorialShown.rug = true;
+            document.getElementById('enemy-popup-content').innerHTML = `
+              <h2>New Enemy: Rug Pull Raider</h2>
+              <p>This dangerous enemy has high health and can drain your DRV from a distance! Destroy it quickly!</p>
+              <div class="enemy-preview">
+                <img src="assets/rug_1.png" alt="Rug Pull Raider" style="width: 64px; height: 64px;">
+                <div class="enemy-stats">
+                  <p><strong>Health:</strong> ${DN_BASE_HP * 2}</p>
+                  <p><strong>Speed:</strong> Fastest enemy type</p>
+                  <p><strong>Special:</strong> Drains DRV from a distance</p>
+                </div>
+              </div>
+            `;
+            document.getElementById('enemy-popup-overlay').style.display = 'flex';
+            enemyPopupOverlayActive = true;
+            gamePaused = true;
+          }
+        }
+        else if(enemyType === "vcVampire") { // Add vcVampire specific setup
+          enemy.hp = enemyTypes.vcVampire.hp;
+          enemy.maxHp = enemyTypes.vcVampire.hp;
+          enemy.speed = enemyTypes.vcVampire.speed;
+          enemy.color = enemyTypes.vcVampire.color;
+          enemy.animationFrames = enemyTypes.vcVampire.walkFrames;
+          enemy.attackFrames = enemyTypes.vcVampire.attackFrames;
+          enemy.damage = enemyTypes.vcVampire.damage;
+          enemy.attackCooldown = enemyTypes.vcVampire.attackCooldown;
+          enemy.isAttacking = false;
+          enemy.attackStartTime = 0;
+          enemy.lastSummonTime = gameTime; // Initialize summon timer
+
+          // Check if we should show the VC Vampire tutorial (only for non-summoned)
+          if(!enemyTutorialShown.vcVampire && !isSummoned) {
+            enemyTutorialShown.vcVampire = true; // Ensure tutorial shown status is tracked
+            document.getElementById('enemy-popup-content').innerHTML = `
+              <h2>New Enemy: VC Vampire</h2>
+              <p>Beware the VC Vampire! Slow but powerful, it summons Debt Zombies to overwhelm your defenses.</p>
+              <div class="enemy-preview">
+                <img src="assets/vc_vampire.png" alt="VC Vampire" style="width: 64px; height: 64px;">
+                <div class="enemy-stats">
+                  <p><strong>Health:</strong> ${enemy.maxHp}</p>
+                  <p><strong>Speed:</strong> Slow</p>
+                  <p><strong>Special:</strong> Summons Debt Zombies every ${enemyTypes.vcVampire.summonInterval / 1000} seconds</p>
+                </div>
+              </div>
+            `;
+            document.getElementById('enemy-popup-overlay').style.display = 'flex';
+            enemyPopupOverlayActive = true;
+            gamePaused = true;
+          }
+        }
+        else if(enemyType === "tankenomics") { // Renamed key
+          enemy.hp = enemyTypes.tankenomics.hp;
+          enemy.maxHp = enemyTypes.tankenomics.hp;
+          enemy.speed = enemyTypes.tankenomics.speed;
+          enemy.color = enemyTypes.tankenomics.color;
+          enemy.animationFrames = enemyTypes.tankenomics.walkFrames; 
+          enemy.attackFrames = enemyTypes.tankenomics.attackFrames; 
+          enemy.damage = enemyTypes.tankenomics.damage;
+          enemy.attackCooldown = enemyTypes.tankenomics.attackCooldown;
+          enemy.isAttacking = false;
+          enemy.attackStartTime = 0;
+
+          // Check if we should show the Tankenomics tutorial (only for non-summoned)
+          if(!enemyTutorialShown.tankenomics && !isSummoned) { // Renamed key
+            enemyTutorialShown.tankenomics = true; // Renamed key
+            document.getElementById('enemy-popup-content').innerHTML = `
+              <h2>New Enemy: Tankenomics</h2>
+              <p>This slow-moving tank has extremely high health, shielding enemies behind it. Take it down quickly to expose the threats it protects!</p>
+              <div class="enemy-preview">
+                <img src="assets/tankenomics_1.png" alt="Tankenomics" style="width: 64px; height: 64px;"> <!-- Placeholder image path -->
+                <div class="enemy-stats">
+                  <p><strong>Health:</strong> ${enemy.maxHp}</p>
+                  <p><strong>Speed:</strong> Very Slow</p>
+                  <p><strong>Special:</strong> Absorbs lots of damage</p>
+                </div>
+              </div>
+            `;
+            document.getElementById('enemy-popup-overlay').style.display = 'flex';
+            enemyPopupOverlayActive = true;
+            gamePaused = true;
+          }
+        }
+        
+        // Add fade-in property if summoned
+        if (isSummoned) {
+          enemy.fadeStartTime = gameTime;
+        }
+        
+        // Add to the enemies array
+        dns.push(enemy);
+        // Only increment spawnedDNs if the enemy is NOT summoned
+        if (!isSummoned) {
+          spawnedDNs++; 
+          totalSpawnedByTypeThisLevel[enemyType]++; // Increment total count for this type
+          console.log("Enemy spawned successfully:", enemy);
+          console.log(`Total enemies spawned (non-summoned): ${spawnedDNs}`);
+          console.log(`Total spawned by type:`, totalSpawnedByTypeThisLevel); // Log the counts
+        } else {
+          console.log("Summoned enemy added:", enemy);
+        }
+        
+        // Return the enemy
+        return enemy;
+      } catch (error) {
+        console.error("ERROR IN SPAWN: Failed to create enemy:", error);
+        return null;
+      }
+    }
+
+    // Create a function to generate a random spawn interval
+    function getRandomSpawnInterval() {
+      return MIN_SPAWN_INTERVAL + Math.random() * (MAX_SPAWN_INTERVAL - MIN_SPAWN_INTERVAL);
+    }
+
+    // Function to create an explosion at the specified position
+    function createExplosion(x, y, radius, duration) {
+      explosions.push({
+        x: x + TILE_SIZE / 2,
+        y: y + TILE_SIZE / 2,
+        startTime: gameTime,
+        duration: duration,
+        maxRadius: radius,
+        color: 'rgba(255, 140, 0, 0.8)' // Orange color for explosion
+      });
+      playSound('explosion');
+    }
+
+    // Function to activate SuperCollateral beam in a lane
+    function activateSuperBeam(lane) {
+      console.log(`Activating SuperCollateral beam in lane ${lane}`);
+      
+      // Mark beam as used
+      laneBeamsUsed[lane] = true;
+      laneBeamEffect[lane] = gameTime + BEAM_DURATION;
+      
+      // Create explosion effect at beam origin
+      explosions.push({
+        x: BEAM_WIDTH / 2,
+        y: lane * TILE_SIZE + TILE_SIZE / 2,
+        startTime: gameTime,
+        duration: 500,
+        maxRadius: TILE_SIZE * 1.5,
+        color: 'rgba(255, 50, 50, 0.8)' // Red color for beam explosion
+      });
+      
+      // Play the SuperCollateral beam sound - use the correct sound file
+      playSound('supercollateral');
+      
+      // For debugging, print all enemies and their rows
+      console.log("All enemies before beam effect:");
+      dns.forEach((enemy, index) => {
+        if (enemy) {
+          console.log(`Enemy ${index}: row=${enemy.row}, type=${enemy.enemyType}, x=${enemy.x.toFixed(1)}`);
+        }
+      });
+      
+      // Create a copy of the DNs array to avoid modification issues during iteration
+      const dnsToProcess = [...dns];
+      
+      // Now check each enemy in the copied array
+      for(let i = dnsToProcess.length - 1; i >= 0; i--) {
+        let dn = dnsToProcess[i];
+        
+        // Skip if enemy doesn't exist or isn't approaching
+        if(!dn || dn.state !== 'approaching') continue;
+        
+        // Check if enemy is in the correct lane
+        if(dn.row === lane) {
+          console.log(`Found enemy in matching lane ${lane}, position ${dn.x.toFixed(1)}`);
+          
+          // Check if enemy is within beam range
+          if(dn.x <= SUPER_BEAM_MAX_RANGE) {
+            let damage = 0;
+            
+            // Guaranteed kill in first 4 tiles
+            if(dn.x <= SUPER_BEAM_RANGE) {
+              damage = dn.maxHp * 2; // Ensure kill by doing double max health damage
+              console.log(`Beam causing fatal damage to enemy at ${dn.x.toFixed(1)}`);
+              
+              // Create smaller explosion at enemy position for visual effect
+              explosions.push({
+                x: dn.x + TILE_SIZE / 2,
+                y: lane * TILE_SIZE + TILE_SIZE / 2, // Ensure explosion is in correct lane
+                startTime: gameTime + Math.random() * 200, // Stagger explosions
+                duration: 300,
+                maxRadius: TILE_SIZE * 0.7,
+                color: 'rgba(255, 160, 50, 0.7)' // Orange-red color for enemy explosion
+              });
+            } 
+            // Damage falloff beyond 4 tiles
+            else {
+              // Calculate falloff factor (1.0 at SUPER_BEAM_RANGE, 0.0 at SUPER_BEAM_MAX_RANGE)
+              let falloffFactor = 1.0 - ((dn.x - SUPER_BEAM_RANGE) / (SUPER_BEAM_MAX_RANGE - SUPER_BEAM_RANGE));
+              damage = SUPER_BEAM_BASE_DAMAGE * falloffFactor;
+              console.log(`Beam causing ${damage.toFixed(1)} damage to enemy at ${dn.x.toFixed(1)}`);
+              
+              // Create a smaller explosion for visual feedback
+              if (falloffFactor > 0.5) { // Only for enemies taking significant damage
+                explosions.push({
+                  x: dn.x + TILE_SIZE / 2,
+                  y: lane * TILE_SIZE + TILE_SIZE / 2, // Ensure explosion is in correct lane
+                  startTime: gameTime + Math.random() * 300,
+                  duration: 200,
+                  maxRadius: TILE_SIZE * 0.4 * falloffFactor,
+                  color: 'rgba(255, 200, 50, 0.5)' // Yellow-orange color for distant explosions
+                });
+              }
+            }
+            
+            // Now find the actual enemy in the real array to apply damage
+            for (let j = 0; j < dns.length; j++) {
+              if (dns[j] === dn) {
+                // Apply damage
+                dns[j].hp -= damage;
+                dns[j].hitTime = gameTime;
+                
+                // Remove enemy if killed
+                if(dns[j].hp <= 0) {
+                  console.log(`Enemy in lane ${lane} killed by beam`);
+                  dns.splice(j, 1);
+                  clearedDNs++;
+                  updateProgressBar();
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // For debugging, print remaining enemies after beam effect
+      console.log("Remaining enemies after beam effect:");
+      dns.forEach((enemy, index) => {
+        if (enemy) {
+          console.log(`Enemy ${index}: row=${enemy.row}, type=${enemy.enemyType}, hp=${enemy.hp.toFixed(1)}`);
+        }
+      });
+    }
+
+    // Audio volume configuration (percentage of maximum)
+    const audioVolumes = {
+      'background-music': 30,  // Background music at 50%
+      'sfx-shoot': 65,         // Shooting sound at 75%
+      'sfx-explosion': 65,     // Explosion sound at 80%
+      'sfx-seed': 70,          // Seed spawning sound at 70%
+      'sfx-enemy_hit': 25,     // Enemy hit sound at 85%
+      'sfx-supercollateral': 100, // Supercollateral beam at 90%
+      'ambient_basic': 20,     // Basic enemy ambient at 40%
+      'ambient_ltv': 10,       // LTV enemy ambient at 40%
+      'ambient_rug': 3,        // Rug enemy ambient at 40%
+      'sfx-gs_impact': 50,     // gs_impact sound at 80%
+      'ambient_vv': 20,        // VC Vampire ambient sound
+      'ambient_tank': 2        // Tankenomics ambient sound
+    };
+
+    // Apply volume settings on game initialization
+    function applyAudioVolumes() {
+      Object.entries(audioVolumes).forEach(([id, volumePercent]) => {
+        const audio = document.getElementById(id);
+        if (audio) {
+          const volume = volumePercent / 100; // Convert percentage to 0-1 scale
+          audio.volume = volume;
+          audio.dataset.volume = volume;
+          console.log(`Set ${id} volume to ${volumePercent}%`);
+        }
+      });
+    }
+
+    /* Update the volume controls to be code-only */
+    function setupVolumeControls() {
+      const sfxSlider = document.getElementById('volume-sfx');
+      const musicSlider = document.getElementById('volume-music');
+      // Select only non-ambient sound effects for the SFX slider
+      const soundEffects = document.querySelectorAll('.sound-effect:not(.ambient-audio)');
+      const bgMusic = document.getElementById('background-music');
+
+      if (!sfxSlider || !musicSlider || !bgMusic || soundEffects.length === 0) {
+        console.error("Volume control elements not found.");
+        return;
+      }
+
+      // 1. Apply initial volumes from audioVolumes (via applyAudioVolumes already called)
+      // Set slider initial positions based on the volumes defined in audioVolumes
+      const initialSfxVolume = (audioVolumes['sfx-shoot'] || 70) / 100; // Default to 70% if not found
+      const initialMusicVolume = (audioVolumes['background-music'] || 30) / 100; // Default to 30% if not found
+      sfxSlider.value = initialSfxVolume;
+      musicSlider.value = initialMusicVolume;
+      console.log(`Initial slider values set from audioVolumes: SFX=${initialSfxVolume}, Music=${initialMusicVolume}`);
+
+      // Helper function to apply volume to a group of elements
+      const applyVolume = (elements, volume) => {
+        elements.forEach(el => {
+          el.volume = volume;
+          el.dataset.volume = volume; // Ensure dataset is updated
+        });
+      };
+
+      // 2. Load saved volumes from localStorage (if available) and apply them
+      const savedSfxVolume = localStorage.getItem('sfxVolume');
+      const savedMusicVolume = localStorage.getItem('musicVolume');
+
+      if (savedSfxVolume !== null) {
+        const volume = parseFloat(savedSfxVolume);
+        console.log(`Loading saved SFX volume: ${volume}`);
+        sfxSlider.value = volume;
+        applyVolume(soundEffects, volume);
+      }
+      
+      if (savedMusicVolume !== null) {
+        const volume = parseFloat(savedMusicVolume);
+        console.log(`Loading saved Music volume: ${volume}`);
+        musicSlider.value = volume;
+        applyVolume([bgMusic], volume); // Apply to music element (as an array)
+      }
+
+      // 3. Add event listeners
+      sfxSlider.addEventListener('input', function() {
+        const volume = parseFloat(this.value);
+        applyVolume(soundEffects, volume);
+        localStorage.setItem('sfxVolume', volume);
+      });
+      
+      musicSlider.addEventListener('input', function() {
+        const volume = parseFloat(this.value);
+        applyVolume([bgMusic], volume);
+        localStorage.setItem('musicVolume', volume);
+      });
+    }
+
+    // Function to play a sound effect
+    function playSound(soundName) {
+      try {
+        let soundId;
+        
+        // Map sound name to audio element id
+        switch(soundName) {
+          case 'shoot':
+            soundId = 'sfx-shoot';
+            break;
+          case 'explosion':
+            soundId = 'sfx-explosion';
+            break;
+          case 'seed_spawn':
+            soundId = 'sfx-seed';
+            break;
+          case 'enemy_hit':
+            soundId = 'sfx-enemy_hit';
+            break;
+          case 'supercollateral':
+            soundId = 'sfx-supercollateral';
+            break;
+          case 'gs_impact':
+            soundId = 'sfx-gs_impact';
+            break;
+        }
+        
+        const sound = document.getElementById(soundId);
+        if (sound) {
+          // Get volume from data attribute or use a default if not set
+          const volume = sound.dataset.volume !== undefined ? parseFloat(sound.dataset.volume) : 0.5;
+          sound.volume = volume;
+          sound.currentTime = 0;
+          sound.play().catch(error => console.error(`Error playing sound ${soundName}:`, error));
+        } else {
+          console.warn(`Sound '${soundName}' not found (ID: ${soundId})`);
+        }
+      } catch (error) {
+        console.error('Error in playSound:', error);
+      }
+    }
+
+    // Function to set up the level skip dropdown (for testing)
+    function setupLevelSkip() {
+      const selectElement = document.getElementById('level-skip-select');
+      if (!selectElement) return;
+
+      // Populate dropdown with levels 1 to 10
+      for (let levelNum = 1; levelNum <= 10; levelNum++) {
+        const option = document.createElement('option');
+        option.value = levelNum;
+        option.text = levelNum;
+        selectElement.appendChild(option);
+      }
+
+      // Add event listener
+      selectElement.addEventListener('change', function() {
+        const selectedLevel = parseInt(this.value);
+        console.log(`Level skip requested: ${selectedLevel}`);
+        goToLevel(selectedLevel);
+      });
+    }
+
+    // Function to reset state and jump to a specific level
+    function goToLevel(levelNum) {
+      if (!levelSettings[levelNum]) {
+        console.error(`Invalid level number: ${levelNum}`);
+        return;
+      }
+
+      console.log(`Jumping to level ${levelNum}...`);
+
+      // Hide overlays
+      document.getElementById('intro-screen').style.display = 'none';
+      document.getElementById('tutorial-overlay').style.display = 'none';
+      document.getElementById('enemy-popup-overlay').style.display = 'none';
+      document.getElementById('level-complete-overlay').style.display = 'none';
+      document.getElementById('pause-overlay').style.display = 'none';
+      introScreenActive = false;
+      tutorialOverlayActive = false;
+      enemyPopupOverlayActive = false;
+      levelCompleteOverlayVisible = false;
+      gamePaused = false;
+      gameOver = false;
+
+      // Set level and DRV
+      currentLevel = levelNum;
+      maxDNsThisLevel = getTotalEnemiesForLevel();
+      drv = levelSettings[currentLevel].startingDRV;
+      updateShopAvailability(); // Update shop based on new level/DRV
+
+      // Reset game objects 
+      towers = [];
+      dns = [];
+      seeds = [];
+      bullets = [];
+      explosions = [];
+      spawnedDNs = 0;
+      clearedDNs = 0;
+      totalSpawnedByTypeThisLevel = { basic: 0, ltv: 0, rug: 0, vcVampire: 0, tankenomics: 0 }; // Reset counter
+      laneBeamsUsed = new Array(ROWS).fill(false);
+      
+      // Reset progress bar
+      document.getElementById("progress").style.width = "0%";
+
+      // Update displays
+      updateDRVDisplay();
+      document.getElementById('level-counter').innerText = 'Level ' + currentLevel;
+
+      // Start level setup countdown
+      document.getElementById('countdown-timer').style.display = 'block';
+      levelStartTime = gameTime; // Use current gameTime as reference
+      levelSetupDone = false;
+      nextSpawnTime = gameTime + levelSetupDuration; // Schedule first spawn after setup
+      nextFallingSeedTime = gameTime + levelSetupDuration + FALLING_SEED_INTERVAL;
+      lastTime = performance.now(); // Reset delta time calculation
+
+      // Update dropdown selection to match
+      const selectElement = document.getElementById('level-skip-select');
+      if (selectElement) selectElement.value = levelNum;
+
+      // Force redraw
+      drawGame();
+    }
+
+  </script>
+</body>
+</html> 
