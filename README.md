@@ -1,4 +1,4 @@
-Finally finished version 1.0 of my "vibe coded" game entry to the @SuperSeed competition - Superseed Defense. Never touched game development or learnt much code beyond basic Python so this was a definite learning curve for me. God knows how many prompts later but I'm pretty happy with how it turned out.
+Finally finished version 1.0 of my "vibe coded" game entry to the @SuperSeed competition - Superseed: Debt Defense. Never touched game development or learnt much code beyond basic Python so this was a definite learning curve for me. God knows how many prompts later but I'm pretty happy with how it turned out.
 
 Loved tower defense games growing up and figured it would be a good way to nicely incorporate key ideas from the ecosystem.
 
